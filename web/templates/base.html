@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TrainingEdge{% endblock %}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg: #000000;
+            --bg-elevated: rgba(28, 28, 30, 0.72);
+            --bg-secondary: rgba(44, 44, 46, 0.65);
+            --bg-tertiary: rgba(58, 58, 60, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-hover: rgba(255, 255, 255, 0.14);
+            --text-primary: #f5f5f7;
+            --text-secondary: rgba(245, 245, 247, 0.6);
+            --text-tertiary: rgba(245, 245, 247, 0.35);
+            --blue: #0a84ff;
+            --green: #30d158;
+            --orange: #ff9f0a;
+            --red: #ff453a;
+            --purple: #bf5af2;
+            --teal: #64d2ff;
+            --pink: #ff375f;
+            --indigo: #5e5ce6;
+            --yellow: #ffd60a;
+            --separator: rgba(255, 255, 255, 0.06);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+        }
+
+        /* ── Navigation ── */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            background: rgba(0, 0, 0, 0.72);
+            border-bottom: 0.5px solid var(--separator);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 52px;
+            gap: 32px;
+        }
+        nav .logo {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+            letter-spacing: -0.2px;
+        }
+        nav .logo span { color: var(--blue); }
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        nav a:hover { color: var(--text-primary); }
+
+        /* ── Page Header ── */
+        .page-header {
+            padding: 40px 0 12px;
+        }
+        .page-header h1 {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+        .page-header .subtitle {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* ── Grid Layout ── */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        /* ── Glass Card ── */
+        .card {
+            background: var(--bg-elevated);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 0.5px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            border-color: var(--glass-border-hover);
+            box-shadow: var(--shadow-sm);
+        }
+        .card-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        /* ── Big Number (Hero Metric) ── */
+        .metric {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .metric-value {
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -1.5px;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .metric-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .metric-sm .metric-value {
+            font-size: 28px;
+            letter-spacing: -0.8px;
+        }
+
+        /* ── Stat Rows ── */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 0.5px solid var(--separator);
+            font-size: 15px;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        .stat-value {
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-primary);
+        }
+
+        /* ── Table ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            border-bottom: 0.5px solid var(--separator);
+        }
+        td {
+            padding: 12px 14px;
+            border-bottom: 0.5px solid var(--separator);
+            color: var(--text-primary);
+        }
+        tr { transition: background 0.15s; }
+        tr:hover td { background: rgba(255,255,255,0.03); }
+        td a {
+            color: var(--blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        td a:hover { text-decoration: underline; }
+
+        /* ── Badge / Pill ── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1px;
+        }
+        .pill-blue { background: rgba(10,132,255,0.16); color: var(--blue); }
+        .pill-green { background: rgba(48,209,88,0.16); color: var(--green); }
+        .pill-orange { background: rgba(255,159,10,0.16); color: var(--orange); }
+        .pill-red { background: rgba(255,69,58,0.16); color: var(--red); }
+        .pill-purple { background: rgba(191,90,242,0.16); color: var(--purple); }
+        .pill-teal { background: rgba(100,210,255,0.16); color: var(--teal); }
+
+        /* ── Chart Container ── */
+        .chart-wrap {
+            position: relative;
+            height: 280px;
+            margin: 4px 0;
+        }
+        .chart-wrap-lg {
+            position: relative;
+            height: 360px;
+            margin: 4px 0;
+        }
+
+        /* ── Section Spacer ── */
+        .section { margin-top: 24px; }
+
+        /* ── Validation Grid ── */
+        .val-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+        .val-item {
+            background: rgba(255,255,255,0.04);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+        .val-field { font-size: 11px; color: var(--text-tertiary); font-weight: 500; text-transform: uppercase; }
+        .val-values { font-size: 13px; color: var(--text-secondary); margin: 6px 0; line-height: 1.6; }
+        .val-diff { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .grid, .grid-3 { grid-template-columns: 1fr; }
+            .container { padding: 0 16px 40px; }
+            .page-header h1 { font-size: 28px; }
+            .metric-value { font-size: 34px; }
+            nav { padding: 0 16px; gap: 20px; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* ── Back link ── */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--blue);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo"><span>Training</span>Edge</a>
+        <a href="/">面板</a>
+        <a href="/body-data">身体数据</a>
+        <a href="/plan">训练计划</a>
+        <a href="/settings">设置</a>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

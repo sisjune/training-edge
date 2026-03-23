@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+state/
+.git/
+.claude/
+*.log
+nas-deploy-data/
+*.egg-info/
+tests/
+docs/

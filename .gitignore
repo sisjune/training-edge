@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Environment
+.env
+
+# Local state (DB, FIT files, logs)
+state/*.db
+state/*.db-shm
+state/*.db-wal
+state/fit_files/
+state/tokens/
+*.log
+
+# NAS deploy data
+nas-deploy-data/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/

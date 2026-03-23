@@ -1,0 +1,1213 @@
+{% extends "base.html" %}
+{% block title %}身体数据 — TrainingEdge{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>身体数据</h1>
+    <div class="subtitle">身体是否朝目标方向变化 · InBody 体成分 · Garmin 健康指标</div>
+</div>
+
+{# ═══ v1: 趋势结论卡 (TrendConclusionCard) — 可折叠 ═══ #}
+{% if body_trend %}
+<div class="card" style="margin:16px 0; border-radius:16px; padding:24px; border-left:3px solid var(--purple);">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+        <span style="font-size:16px;">📊</span>
+        <span style="font-size:15px; font-weight:600;">趋势结论</span>
+        {% if not body_trend.data_sufficient %}
+        <span class="pill pill-orange" style="margin-left:auto;">数据不足</span>
+        {% endif %}
+    </div>
+
+    {# ── 快读版（默认显示） ── #}
+    <div id="trendCompact">
+        <div style="font-size:14px; font-weight:600; color:var(--purple); margin-bottom:4px;">{{ body_trend.status_label|default('—') }}</div>
+        <div style="font-size:13px; color:var(--text-secondary); margin-bottom:6px;">{{ body_trend.judgment|default('') }}</div>
+        {% if body_trend.key_changes %}
+        <div style="font-size:12px; color:var(--text-tertiary); margin-bottom:6px;">{{ body_trend.key_changes }}</div>
+        {% endif %}
+        {% if body_trend.action %}
+        <div style="font-size:12px; color:var(--orange); font-weight:500;">{{ body_trend.action }}</div>
+        {% endif %}
+    </div>
+
+    {# ── 详细分析（默认隐藏） ── #}
+    <div id="trendDetail" style="display:none; margin-top:12px; padding-top:12px; border-top:0.5px solid var(--glass-border);">
+        {% if body_trend.composition_summary %}
+        <div style="font-size:14px; color:var(--text-primary); line-height:1.8; margin-bottom:8px;">
+            <span style="font-weight:600; color:var(--blue);">身体组成：</span>{{ body_trend.composition_summary }}
+        </div>
+        {% endif %}
+
+        {% if body_trend.recovery_summary %}
+        <div style="font-size:14px; color:var(--text-primary); line-height:1.8; margin-bottom:8px;">
+            <span style="font-weight:600; color:var(--green);">恢复状态：</span>{{ body_trend.recovery_summary }}
+        </div>
+        {% endif %}
+
+        {% if body_trend.training_implication %}
+        <div style="font-size:14px; color:var(--text-primary); line-height:1.8;">
+            <span style="font-weight:600; color:var(--orange);">训练含义：</span>{{ body_trend.training_implication }}
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── 展开/收起按钮 ── #}
+    <div style="margin-top:12px; text-align:center;">
+        <button id="trendToggleBtn" onclick="toggleTrendDetail()" style="background:none; border:none; color:var(--blue); font-size:12px; cursor:pointer; padding:4px 12px;">
+            展开详细分析 ▾
+        </button>
+    </div>
+</div>
+<script>
+function toggleTrendDetail() {
+    var detail = document.getElementById('trendDetail');
+    var btn = document.getElementById('trendToggleBtn');
+    if (detail.style.display === 'none') {
+        detail.style.display = 'block';
+        btn.textContent = '收起详细分析 ▴';
+    } else {
+        detail.style.display = 'none';
+        btn.textContent = '展开详细分析 ▾';
+    }
+}
+</script>
+{% endif %}
+
+<!-- ── Hero Metric Cards (row 1) ── -->
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:16px 0;">
+    <!-- 体重 -->
+    <div class="card">
+        <div class="card-label">体重</div>
+        <div class="metric">
+            <div class="metric-value" style="color:var(--blue);">{{ '%.1f'|format(latest.weight_kg) if latest and latest.weight_kg else '—' }}</div>
+            <div class="metric-label">
+                kg
+                {% if previous and latest and latest.weight_kg and previous.weight_kg %}
+                    {% set delta = latest.weight_kg - previous.weight_kg %}
+                    <span style="color:{% if delta > 0 %}var(--red){% elif delta < 0 %}var(--green){% else %}var(--text-tertiary){% endif %}; margin-left:6px;">
+                        {{ '%+.1f'|format(delta) }}
+                        {% if delta > 0 %}&#8593;{% elif delta < 0 %}&#8595;{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- 体脂率 -->
+    <div class="card">
+        <div class="card-label">体脂率</div>
+        <div class="metric">
+            <div class="metric-value" style="color:var(--orange);">{{ '%.1f'|format(latest.body_fat_pct) if latest and latest.body_fat_pct else '—' }}</div>
+            <div class="metric-label">
+                %
+                {% if previous and latest and latest.body_fat_pct and previous.body_fat_pct %}
+                    {% set delta = latest.body_fat_pct - previous.body_fat_pct %}
+                    <span style="color:{% if delta > 0 %}var(--red){% elif delta < 0 %}var(--green){% else %}var(--text-tertiary){% endif %}; margin-left:6px;">
+                        {{ '%+.1f'|format(delta) }}
+                        {% if delta > 0 %}&#8593;{% elif delta < 0 %}&#8595;{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- 骨骼肌 -->
+    <div class="card">
+        <div class="card-label">骨骼肌</div>
+        <div class="metric">
+            <div class="metric-value" style="color:var(--green);">{{ '%.1f'|format(latest.skeletal_muscle_kg) if latest and latest.skeletal_muscle_kg else '—' }}</div>
+            <div class="metric-label">
+                kg
+                {% if previous and latest and latest.skeletal_muscle_kg and previous.skeletal_muscle_kg %}
+                    {% set delta = latest.skeletal_muscle_kg - previous.skeletal_muscle_kg %}
+                    <span style="color:{% if delta > 0 %}var(--green){% elif delta < 0 %}var(--red){% else %}var(--text-tertiary){% endif %}; margin-left:6px;">
+                        {{ '%+.1f'|format(delta) }}
+                        {% if delta > 0 %}&#8593;{% elif delta < 0 %}&#8595;{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- 身体组成状态 -->
+    <div class="card" style="grid-column: span 1;">
+        <div class="card-label">身体组成状态</div>
+        {% if body_trend %}
+            <div style="font-size:15px; font-weight:600; color:var(--purple); margin-bottom:4px;">{{ body_trend.status_label|default('—') }}</div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">{{ body_trend.judgment|default('') }}</div>
+            {% if body_trend.key_changes %}
+            <div style="font-size:11px; color:var(--text-tertiary); line-height:1.6; margin-bottom:6px;">{{ body_trend.key_changes }}</div>
+            {% endif %}
+            {% if body_trend.action %}
+            <div style="font-size:11px; color:var(--orange); font-weight:500;">{{ body_trend.action }}</div>
+            {% endif %}
+        {% else %}
+            <div style="font-size:13px; color:var(--text-tertiary);">暂无趋势数据</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── InBody 身体成分详情 ── -->
+{% if latest and latest.source == 'InBody' %}
+<div class="card section">
+    <div class="card-label">身体组成明细（数据来源：InBody）</div>
+    <div style="font-size:12px; color:var(--text-tertiary); margin-bottom:16px; line-height:1.6;">该区域用于查看明细，不直接决定训练计划；训练建议以趋势和恢复状态综合判断。</div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0;">
+        <!-- 左列: 身体成分 -->
+        <div style="padding-right:20px;">
+            <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">身体成分</div>
+            <div class="stat-row">
+                <span class="stat-label">脂肪量</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.fat_mass_kg) if latest.fat_mass_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">去脂体重</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.lean_body_mass_kg) if latest.lean_body_mass_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">肌肉量</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.muscle_mass_kg) if latest.muscle_mass_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">骨骼肌</span>
+                <span class="stat-value" style="color:var(--green);">{{ '%.1f'|format(latest.skeletal_muscle_kg) if latest.skeletal_muscle_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">蛋白质</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.protein_kg) if latest.protein_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">骨质 (矿物质)</span>
+                <span class="stat-value">{{ '%.2f'|format(latest.bone_mass_kg) if latest.bone_mass_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">身体水分</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.body_water_kg) if latest.body_water_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span> {% if latest.body_water_pct %}<span style="color:var(--text-secondary); font-size:12px;">({{ '%.1f'|format(latest.body_water_pct) }}%)</span>{% endif %}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">无机盐</span>
+                <span class="stat-value">{{ '%.2f'|format(latest.mineral_kg) if latest.mineral_kg else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span></span>
+            </div>
+        </div>
+
+        <!-- 中列: 身体参数 -->
+        <div style="padding:0 20px; border-left:0.5px solid var(--separator); border-right:0.5px solid var(--separator);">
+            <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">身体参数</div>
+            <div class="stat-row">
+                <span class="stat-label">BMI</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.bmi) if latest.bmi else '—' }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">体脂率</span>
+                <span class="stat-value" style="color:var(--orange);">{{ '%.1f'|format(latest.body_fat_pct) if latest.body_fat_pct else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">%</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">内脏脂肪等级</span>
+                <span class="stat-value" style="color:{% if latest.visceral_fat_level and latest.visceral_fat_level <= 9 %}var(--green){% elif latest.visceral_fat_level and latest.visceral_fat_level <= 14 %}var(--orange){% else %}var(--red){% endif %};">{{ latest.visceral_fat_level if latest.visceral_fat_level else '—' }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">腰臀脂肪比</span>
+                <span class="stat-value">{{ '%.2f'|format(latest.waist_hip_ratio) if latest.waist_hip_ratio else '—' }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">健壮指数</span>
+                <span class="stat-value">{{ '%.1f'|format(latest.fitness_index) if latest.fitness_index else '—' }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">基础代谢</span>
+                <span class="stat-value">{{ latest.bmr_kcal if latest.bmr_kcal else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kcal</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">总能量消耗</span>
+                <span class="stat-value">{{ latest.tdee_kcal if latest.tdee_kcal else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">kcal</span></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">身体年龄</span>
+                <span class="stat-value">{{ '%.0f'|format(latest.body_age) if latest.body_age else '—' }} <span style="color:var(--text-tertiary); font-size:12px;">岁</span></span>
+            </div>
+        </div>
+
+        <!-- 右列: 调节建议 + 体型 -->
+        <div style="padding-left:20px;">
+            <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">调节建议</div>
+            {% if latest.body_type %}
+            <div style="margin-bottom:16px;">
+                <span class="pill pill-purple" style="font-size:14px; padding:6px 16px;">{{ latest.body_type }}</span>
+            </div>
+            {% endif %}
+            <div class="stat-row">
+                <span class="stat-label">脂肪调节</span>
+                {% if latest.fat_adjust_kg is not none and latest.fat_adjust_kg %}
+                    <span class="stat-value" style="color:{% if latest.fat_adjust_kg < 0 %}var(--green){% elif latest.fat_adjust_kg > 0 %}var(--red){% else %}var(--text-primary){% endif %};">
+                        {{ '%+.1f'|format(latest.fat_adjust_kg) }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span>
+                    </span>
+                {% else %}
+                    <span class="stat-value">—</span>
+                {% endif %}
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">肌肉调节</span>
+                {% if latest.muscle_adjust_kg is not none and latest.muscle_adjust_kg %}
+                    <span class="stat-value" style="color:{% if latest.muscle_adjust_kg > 0 %}var(--green){% elif latest.muscle_adjust_kg < 0 %}var(--red){% else %}var(--text-primary){% endif %};">
+                        {{ '%+.1f'|format(latest.muscle_adjust_kg) }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span>
+                    </span>
+                {% else %}
+                    <span class="stat-value">—</span>
+                {% endif %}
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">体重调节</span>
+                {% if latest.weight_adjust_kg is not none and latest.weight_adjust_kg %}
+                    <span class="stat-value" style="color:var(--text-primary);">
+                        {{ '%+.1f'|format(latest.weight_adjust_kg) }} <span style="color:var(--text-tertiary); font-size:12px;">kg</span>
+                    </span>
+                {% else %}
+                    <span class="stat-value">—</span>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ── Garmin 健康指标 ── -->
+{% set g = latest_garmin %}
+{% set w = wellness_history[0] if wellness_history else None %}
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:16px 0;">
+    <!-- HRV (优先用 wellness 数据，回退到 body_composition Garmin 数据) -->
+    <div class="card">
+        <div class="card-label">HRV</div>
+        <div class="metric metric-sm">
+            {% set hrv_val = w.hrv if w and w.hrv else (g.hrv_ms if g and g.hrv_ms else None) %}
+            <div class="metric-value" style="color:var(--green);">{{ '%.0f'|format(hrv_val) if hrv_val else '—' }}</div>
+            <div class="metric-label">
+                ms
+                {% if hrv_val and wellness_history|length >= 2 and wellness_history[1].hrv %}
+                    {% set delta = hrv_val - wellness_history[1].hrv %}
+                    <span style="color:{% if delta > 0 %}var(--green){% elif delta < 0 %}var(--red){% else %}var(--text-tertiary){% endif %}; margin-left:6px;">
+                        {{ '%+.0f'|format(delta) }}
+                        {% if delta > 0 %}&#8593;{% elif delta < 0 %}&#8595;{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        {% if not hrv_val %}
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">需同步 Garmin 数据</div>
+        {% elif w %}<div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">{{ w.date }}</div>{% endif %}
+    </div>
+    <!-- 睡眠时长 -->
+    <div class="card">
+        <div class="card-label">睡眠时长</div>
+        <div class="metric metric-sm">
+            {% set sleep_hrs = w.sleep_hours if w and w.sleep_hours else None %}
+            {% set sleep_min = g.sleep_duration_min if g and g.sleep_duration_min else None %}
+            {% if sleep_hrs %}
+                {% set hrs = sleep_hrs|int %}
+                {% set mins = ((sleep_hrs - hrs) * 60)|int %}
+                <div class="metric-value" style="color:var(--purple);">{{ hrs }}<span style="font-size:16px;">h</span>{{ mins }}<span style="font-size:16px;">m</span></div>
+            {% elif sleep_min %}
+                {% set hrs = (sleep_min // 60)|int %}
+                {% set mins = (sleep_min % 60)|int %}
+                <div class="metric-value" style="color:var(--purple);">{{ hrs }}<span style="font-size:16px;">h</span>{{ mins }}<span style="font-size:16px;">m</span></div>
+            {% else %}
+                <div class="metric-value" style="color:var(--text-tertiary);">—</div>
+            {% endif %}
+            <div class="metric-label">
+                {% if g and g.deep_sleep_pct %}深睡 {{ '%.0f'|format(g.deep_sleep_pct) }}%{% endif %}
+            </div>
+        </div>
+        {% if not sleep_hrs and not sleep_min %}
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">需同步 Garmin 数据</div>
+        {% endif %}
+    </div>
+    <!-- 静息心率 -->
+    <div class="card">
+        <div class="card-label">静息心率</div>
+        <div class="metric metric-sm">
+            {% set rhr = w.resting_hr if w and w.resting_hr else (g.resting_hr if g and g.resting_hr else None) %}
+            <div class="metric-value" style="color:var(--red);">{{ rhr if rhr else '—' }}</div>
+            <div class="metric-label">bpm</div>
+        </div>
+    </div>
+    <!-- Body Battery (仅在有值时显示) -->
+    {% if g and g.body_battery %}
+    <div class="card">
+        <div class="card-label">Body Battery</div>
+        <div class="metric metric-sm">
+            <div class="metric-value" style="color:var(--teal);">{{ g.body_battery }}</div>
+            <div class="metric-label">
+                {% if g.endurance_score %}耐力 {{ '%.0f'|format(g.endurance_score) }}{% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Garmin 同步按钮（数据缺失时显示） ── -->
+{% if not w or not w.hrv %}
+<div style="background:rgba(255,159,10,0.08); border:0.5px solid rgba(255,159,10,0.2); border-radius:12px; padding:14px 20px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <span style="font-size:14px; color:var(--orange); font-weight:600;">Garmin 数据未同步</span>
+        <span style="font-size:13px; color:var(--text-secondary); margin-left:8px;">HRV、睡眠、静息心率等数据需要从 Garmin Connect 同步</span>
+    </div>
+    <button id="syncWellnessBtn" onclick="syncGarminWellness()" style="padding:8px 20px; border-radius:10px; border:none; background:var(--green); color:#fff; font-size:13px; font-weight:600; cursor:pointer;">
+        同步 Garmin 健康数据
+    </button>
+</div>
+{% endif %}
+
+<!-- ── Trend Charts ── -->
+<div class="card section" style="margin-top:24px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div class="card-label" style="margin-bottom:0;">体重 · 体脂 · 骨骼肌 趋势</div>
+        <div class="range-btns" data-chart="weight">
+            <button class="range-btn" data-days="7">7天</button>
+            <button class="range-btn" data-days="30">30天</button>
+            <button class="range-btn active" data-days="90">90天</button>
+        </div>
+    </div>
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:8px; padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px;">
+        {% if body_trend and body_trend.composition_summary %}
+        > {{ body_trend.composition_summary }}
+        {% else %}
+        > 暂无趋势结论（数据不足）
+        {% endif %}
+    </div>
+    <div class="chart-wrap">
+        <canvas id="weightChart"></canvas>
+    </div>
+</div>
+
+<div class="card section">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div class="card-label" style="margin-bottom:0;">HRV 与睡眠趋势</div>
+        <div class="range-btns" data-chart="hrv">
+            <button class="range-btn" data-days="7">7天</button>
+            <button class="range-btn" data-days="30">30天</button>
+            <button class="range-btn active" data-days="90">90天</button>
+        </div>
+    </div>
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:8px; padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px;">
+        {% if body_trend and body_trend.recovery_summary %}
+        > {{ body_trend.recovery_summary }}
+        {% else %}
+        > 暂无恢复趋势结论
+        {% endif %}
+    </div>
+    <div class="chart-wrap">
+        <canvas id="hrvChart"></canvas>
+    </div>
+</div>
+
+<!-- ── 数据来源与可信度 ── -->
+<div class="card section">
+    <div class="card-label">数据来源与可信度</div>
+    <div style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>指标</th>
+                <th>来源</th>
+                <th>可信度</th>
+                <th>可比性</th>
+                <th>决策参与</th>
+                <th>最新同步</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>HRV</td>
+                <td><span class="pill pill-green">Garmin</span></td>
+                <td>高</td>
+                <td>高</td>
+                <td><span style="color:var(--green); font-weight:600;">主要</span></td>
+                <td>{% if w %}{{ w.date }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+                <td>静息心率</td>
+                <td><span class="pill pill-green">Garmin</span></td>
+                <td>高</td>
+                <td>高</td>
+                <td><span style="color:var(--green); font-weight:600;">主要</span></td>
+                <td>{% if w %}{{ w.date }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+                <td>睡眠</td>
+                <td><span class="pill pill-green">Garmin</span></td>
+                <td>中</td>
+                <td>中</td>
+                <td><span style="color:var(--blue);">辅助</span></td>
+                <td>{% if w %}{{ w.date }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+                <td>体脂率</td>
+                <td><span class="pill pill-blue">InBody OCR</span></td>
+                <td>中</td>
+                <td>中</td>
+                <td><span style="color:var(--blue);">辅助</span></td>
+                <td>{% if latest %}{{ latest.date }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+                <td>体重</td>
+                <td><span class="pill pill-blue">InBody</span></td>
+                <td>中</td>
+                <td>中</td>
+                <td><span style="color:var(--blue);">辅助</span></td>
+                <td>{% if latest %}{{ latest.date }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+                <td>骨骼肌</td>
+                <td><span class="pill pill-blue">InBody</span></td>
+                <td>中</td>
+                <td>中</td>
+                <td><span style="color:var(--blue);">辅助</span></td>
+                <td>{% if latest %}{{ latest.date }}{% else %}—{% endif %}</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- ── InBody 照片上传 ── -->
+<div class="card section">
+    <div class="card-label">InBody 照片识别</div>
+    <div style="display:flex; gap:20px; align-items:flex-start;">
+        <div style="flex:1;">
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+                上传 InBody 体测机屏幕照片（支持 1-4 张），AI 会自动识别并提取所有数据入库。
+            </p>
+            <div id="dropZone" style="border:2px dashed var(--glass-border); border-radius:14px; padding:40px 20px; text-align:center; cursor:pointer; transition:border-color 0.3s, background 0.3s;">
+                <div style="font-size:32px; margin-bottom:8px;">📸</div>
+                <div style="font-size:14px; color:var(--text-secondary);">拖放照片到这里，或点击选择</div>
+                <div style="font-size:12px; color:var(--text-tertiary); margin-top:4px;">支持 JPG / PNG，最多 4 张</div>
+                <input type="file" id="ocrFiles" multiple accept="image/*" style="display:none;">
+            </div>
+            <!-- Preview -->
+            <div id="ocrPreview" style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;"></div>
+        </div>
+        <div style="flex:0 0 auto; display:flex; flex-direction:column; gap:8px; padding-top:40px;">
+            <button type="button" id="ocrBtn" disabled style="padding:12px 32px; border-radius:12px; border:none; background:var(--purple); color:#fff; font-size:14px; font-weight:600; cursor:pointer; opacity:0.4; transition:opacity 0.3s;">
+                AI 识别
+            </button>
+            <span id="ocrStatus" style="font-size:12px; color:var(--text-tertiary); text-align:center;"></span>
+        </div>
+    </div>
+    <!-- OCR Result Preview -->
+    <div id="ocrResult" style="display:none; margin-top:16px; padding:16px; background:var(--bg-secondary); border-radius:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:13px; font-weight:600; color:var(--green);">识别结果</span>
+            <button type="button" id="ocrSaveBtn" style="padding:6px 16px; border-radius:8px; border:none; background:var(--green); color:#fff; font-size:13px; font-weight:600; cursor:pointer;">已保存</button>
+        </div>
+        <div id="ocrResultData" style="font-size:13px; color:var(--text-secondary); line-height:1.8;"></div>
+    </div>
+</div>
+
+<!-- ── Data Entry Form ── -->
+<div class="card section">
+    <div class="card-label">手动录入</div>
+    <form id="bodyForm">
+        <!-- Row 1: 基础信息 -->
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">基础信息</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div>
+                <label class="form-label">日期</label>
+                <input type="date" name="date" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">来源</label>
+                <select name="source" class="form-input">
+                    <option value="manual">手动</option>
+                    <option value="InBody">InBody</option>
+                    <option value="Garmin">Garmin</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">体重 (kg)</label>
+                <input type="number" step="0.1" name="weight_kg" placeholder="70.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">BMI</label>
+                <input type="number" step="0.1" name="bmi" placeholder="22.5" class="form-input">
+            </div>
+        </div>
+
+        <!-- Row 2: InBody 身体成分 -->
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">InBody 身体成分</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div>
+                <label class="form-label">体脂率 (%)</label>
+                <input type="number" step="0.1" name="body_fat_pct" placeholder="15.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">脂肪量 (kg)</label>
+                <input type="number" step="0.1" name="fat_mass_kg" placeholder="10.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">去脂体重 (kg)</label>
+                <input type="number" step="0.1" name="lean_body_mass_kg" placeholder="60.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">骨骼肌 (kg)</label>
+                <input type="number" step="0.1" name="skeletal_muscle_kg" placeholder="32.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">肌肉量 (kg)</label>
+                <input type="number" step="0.1" name="muscle_mass_kg" placeholder="55.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">蛋白质 (kg)</label>
+                <input type="number" step="0.1" name="protein_kg" placeholder="11.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">骨质 (kg)</label>
+                <input type="number" step="0.01" name="bone_mass_kg" placeholder="3.50" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">身体水分 (kg)</label>
+                <input type="number" step="0.1" name="body_water_kg" placeholder="40.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">身体水分比例 (%)</label>
+                <input type="number" step="0.1" name="body_water_pct" placeholder="55.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">无机盐 (kg)</label>
+                <input type="number" step="0.01" name="mineral_kg" placeholder="3.80" class="form-input">
+            </div>
+        </div>
+
+        <!-- Row 3: InBody 身体参数 -->
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">InBody 身体参数</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div>
+                <label class="form-label">内脏脂肪等级</label>
+                <input type="number" name="visceral_fat_level" placeholder="8" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">腰臀脂肪比</label>
+                <input type="number" step="0.01" name="waist_hip_ratio" placeholder="0.85" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">健壮指数</label>
+                <input type="number" step="0.1" name="fitness_index" placeholder="18.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">基础代谢 (kcal)</label>
+                <input type="number" name="bmr_kcal" placeholder="1650" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">总能量消耗 (kcal)</label>
+                <input type="number" name="tdee_kcal" placeholder="2500" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">身体年龄</label>
+                <input type="number" step="0.1" name="body_age" placeholder="25" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">身体评分</label>
+                <input type="number" name="body_score" placeholder="85" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">体型</label>
+                <input type="text" name="body_type" placeholder="运动员" class="form-input">
+            </div>
+        </div>
+
+        <!-- Row 4: 调节建议 -->
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">调节建议</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div>
+                <label class="form-label">脂肪调节 (kg)</label>
+                <input type="number" step="0.1" name="fat_adjust_kg" placeholder="-3.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">肌肉调节 (kg)</label>
+                <input type="number" step="0.1" name="muscle_adjust_kg" placeholder="+2.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">体重调节 (kg)</label>
+                <input type="number" step="0.1" name="weight_adjust_kg" placeholder="-1.0" class="form-input">
+            </div>
+        </div>
+
+        <!-- Row 5: Garmin 健康指标 -->
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Garmin 健康指标</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div>
+                <label class="form-label">静息心率 (bpm)</label>
+                <input type="number" name="resting_hr" placeholder="42" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">HRV (ms)</label>
+                <input type="number" step="0.1" name="hrv_ms" placeholder="45" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">睡眠时长 (分钟)</label>
+                <input type="number" step="1" name="sleep_duration_min" placeholder="420" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">深睡比例 (%)</label>
+                <input type="number" step="0.1" name="deep_sleep_pct" placeholder="20.0" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">耐力分数</label>
+                <input type="number" step="0.1" name="endurance_score" placeholder="50" class="form-input">
+            </div>
+            <div>
+                <label class="form-label">Body Battery</label>
+                <input type="number" name="body_battery" placeholder="80" class="form-input">
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="form-label">备注</label>
+                <input type="text" name="notes" placeholder="备注..." class="form-input">
+            </div>
+        </div>
+
+        <div>
+            <button type="submit" style="padding:10px 28px; border-radius:10px; border:none; background:var(--blue); color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:opacity 0.2s;">保存</button>
+            <span id="formMsg" style="margin-left:12px; font-size:13px; color:var(--green); display:none;">已保存</span>
+        </div>
+    </form>
+</div>
+
+<!-- ── 每日健康数据（Garmin） ── -->
+<div class="card section">
+    <div class="card-label">每日健康数据</div>
+    <div style="font-size:12px; color:var(--text-tertiary); margin-bottom:12px;">来源：Garmin · HRV / 睡眠 / 静息心率</div>
+    <div style="overflow-x:auto; margin:0 -20px; padding:0 20px;">
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>HRV</th>
+                <th>静息心率</th>
+                <th>睡眠时长</th>
+                <th>睡眠评分</th>
+                <th>备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in wellness_history %}
+            <tr>
+                <td style="white-space:nowrap;">{{ r.date }}</td>
+                <td>
+                    {% if r.hrv %}
+                        <span style="font-weight:600; color:{% if r.hrv >= 65 %}var(--green){% elif r.hrv >= 50 %}var(--orange){% else %}var(--red){% endif %};">{{ '%.0f'|format(r.hrv) }}</span>
+                        <span style="color:var(--text-tertiary); font-size:12px;">ms</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if r.resting_hr %}
+                        <span style="font-weight:600;">{{ '%.0f'|format(r.resting_hr) }}</span>
+                        <span style="color:var(--text-tertiary); font-size:12px;">bpm</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if r.sleep_hours %}
+                        {% set hrs = r.sleep_hours|int %}
+                        {% set mins = ((r.sleep_hours - hrs) * 60)|int %}
+                        <span style="font-weight:600; color:{% if hrs >= 7 %}var(--green){% elif hrs >= 6 %}var(--orange){% else %}var(--red){% endif %};">{{ hrs }}h{{ '%02d'|format(mins) }}m</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if r.sleep_score %}
+                        <span style="font-weight:600; color:{% if r.sleep_score >= 80 %}var(--green){% elif r.sleep_score >= 60 %}var(--orange){% else %}var(--red){% endif %};">{{ '%.0f'|format(r.sleep_score) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--text-secondary); font-size:13px;">{{ r.notes or '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center; color:var(--text-tertiary); padding:24px;">暂无 Garmin 健康数据</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- ── 身体成分记录（InBody） ── -->
+<div class="card section">
+    <div class="card-label">身体成分记录</div>
+    <div style="font-size:12px; color:var(--text-tertiary); margin-bottom:12px;">来源：InBody · 体重 / 体脂 / 肌肉</div>
+    <div style="overflow-x:auto; margin:0 -20px; padding:0 20px;">
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>体重</th>
+                <th>体脂</th>
+                <th>骨骼肌</th>
+                <th>肌肉量</th>
+                <th>脂肪量</th>
+                <th>内脏脂肪</th>
+                <th>BMR</th>
+                <th>评分</th>
+                <th>备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in history if r.source != 'Garmin' %}
+            <tr>
+                <td style="white-space:nowrap;">{{ r.date }}</td>
+                <td>{{ '%.1f'|format(r.weight_kg) if r.weight_kg else '—' }} {% if r.weight_kg %}<span style="color:var(--text-tertiary); font-size:12px;">kg</span>{% endif %}</td>
+                <td style="color:var(--orange);">{{ '%.1f'|format(r.body_fat_pct) if r.body_fat_pct else '—' }}{% if r.body_fat_pct %}%{% endif %}</td>
+                <td style="color:var(--green);">{{ '%.1f'|format(r.skeletal_muscle_kg) if r.skeletal_muscle_kg else '—' }}</td>
+                <td>{{ '%.1f'|format(r.muscle_mass_kg) if r.muscle_mass_kg else '—' }}</td>
+                <td>{{ '%.1f'|format(r.fat_mass_kg) if r.fat_mass_kg else '—' }}</td>
+                <td>{{ r.visceral_fat_level if r.visceral_fat_level else '—' }}</td>
+                <td>{{ r.bmr_kcal or '—' }}</td>
+                <td>
+                    {% if r.body_score %}
+                        <span style="font-weight:600; color:{% if r.body_score >= 80 %}var(--green){% elif r.body_score >= 60 %}var(--orange){% else %}var(--red){% endif %};">{{ r.body_score }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="color:var(--text-secondary); font-size:13px;">{{ r.notes or '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" style="text-align:center; color:var(--text-tertiary); padding:24px;">暂无 InBody 数据</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .form-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: block;
+        margin-bottom: 4px;
+    }
+    .form-input {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 0.5px solid var(--glass-border);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .form-input:focus {
+        border-color: var(--blue);
+    }
+    .range-btns {
+        display: flex;
+        gap: 4px;
+    }
+    .range-btn {
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: 0.5px solid var(--glass-border);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .range-btn:hover {
+        background: rgba(255,255,255,0.06);
+    }
+    .range-btn.active {
+        background: var(--blue);
+        color: #fff;
+        border-color: var(--blue);
+    }
+    @media (max-width: 768px) {
+        .form-input { font-size: 16px; }
+    }
+</style>
+<script>
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif";
+Chart.defaults.color = 'rgba(245,245,247,0.35)';
+const gridColor = 'rgba(255,255,255,0.04)';
+const tooltipStyle = {
+    backgroundColor: 'rgba(28,28,30,0.92)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 0.5,
+    cornerRadius: 10,
+    titleFont: { weight: '600', size: 13 },
+    bodyFont: { size: 12 },
+    padding: 12,
+    displayColors: true,
+    boxPadding: 4,
+};
+
+const history = {{ history | tojson }};
+// Reverse so chronological order (oldest first)
+const sorted = [...history].reverse();
+
+// ── 时间范围过滤工具 ──
+function sliceByDays(arr, days) {
+    if (!arr.length) return arr;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return arr.filter(d => d.date >= cutoffStr);
+}
+
+// ── Weight & Body Fat & Muscle Chart ──
+let weightChartInstance = null;
+function renderWeightChart(days) {
+    const data = days ? sliceByDays(sorted, days) : sorted;
+    if (data.length === 0) return;
+    if (weightChartInstance) weightChartInstance.destroy();
+    weightChartInstance = new Chart(document.getElementById('weightChart'), {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.date),
+            datasets: [
+                {
+                    label: '体重 (kg)',
+                    data: data.map(d => d.weight_kg),
+                    borderColor: '#0a84ff',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5,
+                    yAxisID: 'y',
+                },
+                {
+                    label: '体脂率 (%)',
+                    data: data.map(d => d.body_fat_pct),
+                    borderColor: '#ff9f0a',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    borderDash: [5, 3],
+                    yAxisID: 'y1',
+                },
+                {
+                    label: '骨骼肌 (kg)',
+                    data: data.map(d => d.skeletal_muscle_kg),
+                    borderColor: '#30d158',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y',
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor }, border: { display: false } },
+                y: { position: 'left', ticks: { font: { size: 11 } }, grid: { color: gridColor }, border: { display: false }, title: { display: true, text: 'kg', font: { size: 12, weight: '500' }, color: 'rgba(245,245,247,0.35)' } },
+                y1: { position: 'right', ticks: { font: { size: 11 } }, grid: { drawOnChartArea: false }, border: { display: false }, title: { display: true, text: '%', font: { size: 12, weight: '500' }, color: 'rgba(245,245,247,0.35)' } },
+            },
+            plugins: {
+                legend: { labels: { font: { size: 12, weight: '500' }, padding: 20, usePointStyle: true, pointStyle: 'circle' } },
+                tooltip: tooltipStyle,
+            }
+        }
+    });
+}
+if (sorted.length > 0) renderWeightChart(90);
+
+// ── HRV & Sleep Chart ──
+const wellnessData = {{ wellness_history | tojson }};
+const wellnessSorted = [...wellnessData].reverse();
+const hrvChartDataAll = wellnessSorted.length > 0 ? wellnessSorted : sorted.filter(d => d.hrv_ms || d.sleep_duration_min);
+
+let hrvChartInstance = null;
+function renderHrvChart(days) {
+    const data = days ? sliceByDays(hrvChartDataAll, days) : hrvChartDataAll;
+    if (data.length === 0) {
+        const hrvCanvas = document.getElementById('hrvChart');
+        hrvCanvas.parentElement.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-tertiary);"><div style="font-size:24px; margin-bottom:8px;">📊</div><div>暂无 HRV/睡眠数据</div><div style="font-size:12px; margin-top:4px;">请先同步 Garmin 健康数据</div></div>';
+        return;
+    }
+    if (hrvChartInstance) hrvChartInstance.destroy();
+    hrvChartInstance = new Chart(document.getElementById('hrvChart'), {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.date),
+            datasets: [
+                {
+                    label: 'HRV (ms)',
+                    data: data.map(d => d.hrv || d.hrv_ms || null),
+                    borderColor: '#30d158',
+                    backgroundColor: ctx => {
+                        const chart = ctx.chart;
+                        const { ctx: c, chartArea } = chart;
+                        if (!chartArea) return 'rgba(48,209,88,0.06)';
+                        const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(48,209,88,0.15)');
+                        gradient.addColorStop(1, 'rgba(48,209,88,0.0)');
+                        return gradient;
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5,
+                    yAxisID: 'y',
+                    spanGaps: true,
+                },
+                {
+                    label: '睡眠 (小时)',
+                    data: data.map(d => {
+                        if (d.sleep_hours) return d.sleep_hours;
+                        if (d.sleep_duration_min) return (d.sleep_duration_min / 60).toFixed(1);
+                        return null;
+                    }),
+                    borderColor: '#bf5af2',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    borderDash: [5, 3],
+                    yAxisID: 'y1',
+                    spanGaps: true,
+                },
+                {
+                    label: '静息心率 (bpm)',
+                    data: data.map(d => d.resting_hr || null),
+                    borderColor: '#ff453a',
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    borderWidth: 1.5,
+                    borderDash: [3, 2],
+                    yAxisID: 'y',
+                    spanGaps: true,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: { ticks: { maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor }, border: { display: false } },
+                y: { position: 'left', ticks: { font: { size: 11 } }, grid: { color: gridColor }, border: { display: false }, title: { display: true, text: 'ms / bpm', font: { size: 12, weight: '500' }, color: 'rgba(245,245,247,0.35)' } },
+                y1: { position: 'right', ticks: { font: { size: 11 } }, grid: { drawOnChartArea: false }, border: { display: false }, title: { display: true, text: '小时', font: { size: 12, weight: '500' }, color: 'rgba(245,245,247,0.35)' } },
+            },
+            plugins: {
+                legend: { labels: { font: { size: 12, weight: '500' }, padding: 20, usePointStyle: true, pointStyle: 'circle' } },
+                tooltip: tooltipStyle,
+            }
+        }
+    });
+}
+if (hrvChartDataAll.length > 0) {
+    renderHrvChart(90);
+} else {
+    const hrvCanvas = document.getElementById('hrvChart');
+    hrvCanvas.parentElement.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-tertiary);"><div style="font-size:24px; margin-bottom:8px;">📊</div><div>暂无 HRV/睡眠数据</div><div style="font-size:12px; margin-top:4px;">请先同步 Garmin 健康数据</div></div>';
+}
+
+// ── 时间范围按钮事件 ──
+document.querySelectorAll('.range-btns').forEach(group => {
+    const chartName = group.dataset.chart;
+    group.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            group.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const days = parseInt(btn.dataset.days, 10);
+            if (chartName === 'weight') renderWeightChart(days);
+            else if (chartName === 'hrv') renderHrvChart(days);
+        });
+    });
+});
+
+// ── Garmin Wellness Sync ──
+async function syncGarminWellness() {
+    const btn = document.getElementById('syncWellnessBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    try {
+        const resp = await fetch('/api/sync-garmin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'wellness' }),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            btn.textContent = result.message;
+            btn.style.background = 'var(--green)';
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            btn.textContent = '同步失败: ' + (result.detail || '未知错误');
+            btn.style.background = 'var(--red)';
+        }
+    } catch (err) {
+        btn.textContent = '同步失败: ' + err.message;
+        btn.style.background = 'var(--red)';
+    }
+}
+
+// ── Form Submission ──
+const floatFields = [
+    'weight_kg','body_fat_pct','skeletal_muscle_kg','muscle_mass_kg','fat_mass_kg',
+    'lean_body_mass_kg','protein_kg','bone_mass_kg','body_water_kg','body_water_pct',
+    'mineral_kg','waist_hip_ratio','fitness_index','body_age',
+    'hrv_ms','sleep_duration_min','deep_sleep_pct','endurance_score',
+    'fat_adjust_kg','muscle_adjust_kg','weight_adjust_kg','bmi',
+];
+const intFields = ['bmr_kcal','tdee_kcal','visceral_fat_level','body_score','resting_hr','body_battery'];
+
+document.getElementById('bodyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+        if (v !== '') {
+            if (floatFields.includes(k)) {
+                data[k] = parseFloat(v);
+            } else if (intFields.includes(k)) {
+                data[k] = parseInt(v, 10);
+            } else {
+                data[k] = v;
+            }
+        }
+    }
+    try {
+        const resp = await fetch('/api/body-composition', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            const msg = document.getElementById('formMsg');
+            msg.style.display = 'inline';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+            setTimeout(() => { window.location.reload(); }, 500);
+        } else {
+            alert('保存失败: ' + (result.detail || JSON.stringify(result)));
+        }
+    } catch (err) {
+        alert('保存失败: ' + err.message);
+    }
+});
+
+// ── InBody OCR Upload ──
+const dropZone = document.getElementById('dropZone');
+const ocrFiles = document.getElementById('ocrFiles');
+const ocrBtn = document.getElementById('ocrBtn');
+const ocrStatus = document.getElementById('ocrStatus');
+const ocrPreview = document.getElementById('ocrPreview');
+const ocrResult = document.getElementById('ocrResult');
+const ocrResultData = document.getElementById('ocrResultData');
+let selectedFiles = [];
+
+// Click to select
+dropZone.addEventListener('click', () => ocrFiles.click());
+
+// Drag & drop
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--purple)';
+    dropZone.style.background = 'rgba(191,90,242,0.06)';
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = 'var(--glass-border)';
+    dropZone.style.background = 'transparent';
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--glass-border)';
+    dropZone.style.background = 'transparent';
+    handleFiles(e.dataTransfer.files);
+});
+
+ocrFiles.addEventListener('change', () => handleFiles(ocrFiles.files));
+
+function handleFiles(files) {
+    selectedFiles = [...files].slice(0, 4);
+    ocrPreview.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+        const url = URL.createObjectURL(f);
+        const div = document.createElement('div');
+        div.style.cssText = 'position:relative; width:80px; height:80px; border-radius:10px; overflow:hidden; border:0.5px solid var(--glass-border);';
+        div.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;">
+            <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);font-size:10px;color:var(--text-secondary);padding:2px 4px;text-align:center;">${f.name.slice(0,12)}</div>`;
+        ocrPreview.appendChild(div);
+    });
+    ocrBtn.disabled = selectedFiles.length === 0;
+    ocrBtn.style.opacity = selectedFiles.length > 0 ? '1' : '0.4';
+    ocrStatus.textContent = `已选择 ${selectedFiles.length} 张`;
+}
+
+ocrBtn.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) return;
+
+    ocrBtn.disabled = true;
+    ocrBtn.textContent = '识别中...';
+    ocrBtn.style.opacity = '0.6';
+    ocrStatus.textContent = '正在调用 AI 识别...';
+    ocrStatus.style.color = 'var(--purple)';
+
+    const formData = new FormData();
+    selectedFiles.forEach(f => formData.append('files', f));
+
+    try {
+        const resp = await fetch('/api/inbody-ocr', {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await resp.json();
+
+        if (result.ok) {
+            ocrStatus.textContent = '识别成功！';
+            ocrStatus.style.color = 'var(--green)';
+
+            // Show result
+            ocrResult.style.display = 'block';
+            const d = result.data;
+            const fieldLabels = {
+                date: '日期', weight_kg: '体重', body_fat_pct: '体脂率', fat_mass_kg: '脂肪量',
+                lean_body_mass_kg: '去脂体重', skeletal_muscle_kg: '骨骼肌', muscle_mass_kg: '肌肉量',
+                protein_kg: '蛋白质', bone_mass_kg: '骨质', body_water_kg: '身体水分',
+                bmi: 'BMI', visceral_fat_level: '内脏脂肪', waist_hip_ratio: '腰臀比',
+                fitness_index: '健壮指数', mineral_kg: '钙质', bmr_kcal: '基础代谢',
+                tdee_kcal: '总能量消耗', body_age: '身体年龄', body_score: '身体评分',
+                body_type: '体型', fat_adjust_kg: '脂肪调节', muscle_adjust_kg: '肌肉调节',
+                weight_adjust_kg: '体重调节',
+            };
+            let html = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px 16px;">';
+            for (const [key, label] of Object.entries(fieldLabels)) {
+                if (d[key] !== undefined && d[key] !== null) {
+                    let val = d[key];
+                    if (key === 'body_fat_pct') val += '%';
+                    else if (key.endsWith('_kg')) val += ' kg';
+                    else if (key === 'bmr_kcal' || key === 'tdee_kcal') val += ' kcal';
+                    html += `<div><span style="color:var(--text-tertiary);">${label}:</span> <span style="font-weight:500;">${val}</span></div>`;
+                }
+            }
+            html += '</div>';
+            ocrResultData.innerHTML = html;
+
+            // Auto reload after 2s
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            ocrStatus.textContent = result.detail || '识别失败';
+            ocrStatus.style.color = 'var(--red)';
+        }
+    } catch (err) {
+        ocrStatus.textContent = '请求失败: ' + err.message;
+        ocrStatus.style.color = 'var(--red)';
+    } finally {
+        ocrBtn.disabled = false;
+        ocrBtn.textContent = 'AI 识别';
+        ocrBtn.style.opacity = '1';
+    }
+});
+</script>
+
+<div style="padding:20px 0; text-align:center; font-size:12px; color:var(--text-tertiary); border-top:0.5px solid var(--glass-border); margin-top:24px;">
+    本系统用于训练管理与运动表现优化，不替代医疗诊断或治疗建议。如存在伤病或异常，请咨询专业医疗人员。
+</div>
+{% endblock %}

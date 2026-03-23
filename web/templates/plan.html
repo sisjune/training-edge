@@ -1,0 +1,1445 @@
+{% extends "base.html" %}
+{% block title %}训练计划 — TrainingEdge{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Week Navigation ── */
+    .week-nav {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 8px 0 20px;
+    }
+    .week-nav a {
+        color: var(--blue);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 6px 14px;
+        border-radius: 8px;
+        background: rgba(10,132,255,0.1);
+        transition: background 0.2s;
+    }
+    .week-nav a:hover {
+        background: rgba(10,132,255,0.2);
+    }
+    .week-nav .week-label {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-primary);
+        letter-spacing: -0.2px;
+    }
+
+    /* ── AI Generation Panel ── */
+    .ai-panel {
+        background: linear-gradient(135deg, rgba(191,90,242,0.08), rgba(10,132,255,0.08));
+        border: 0.5px solid rgba(191,90,242,0.2);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .ai-panel h3 {
+        font-size: 17px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ai-panel .profile-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .profile-item {
+        background: rgba(255,255,255,0.04);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+    .profile-item .label {
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .profile-item .value {
+        color: var(--text-primary);
+        font-weight: 600;
+        margin-top: 2px;
+    }
+    .ai-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .btn-ai {
+        padding: 10px 24px;
+        border-radius: 12px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+    .btn-ai-primary {
+        background: linear-gradient(135deg, var(--purple), var(--blue));
+        color: #fff;
+    }
+    .btn-ai-primary:hover { opacity: 0.85; }
+    .btn-ai-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ai-secondary {
+        background: rgba(255,255,255,0.08);
+        color: var(--text-secondary);
+    }
+    .btn-ai-secondary:hover { background: rgba(255,255,255,0.14); }
+    .ai-status {
+        display: none;
+        margin-top: 12px;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    .no-api-key-hint {
+        background: rgba(255,159,10,0.1);
+        border: 0.5px solid rgba(255,159,10,0.2);
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        color: var(--orange);
+        margin-bottom: 16px;
+    }
+    .no-api-key-hint a {
+        color: var(--blue);
+        font-weight: 600;
+    }
+
+    /* ── Calendar Grid ── */
+    .cal-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .cal-day {
+        background: var(--bg-elevated);
+        backdrop-filter: blur(40px);
+        -webkit-backdrop-filter: blur(40px);
+        border: 0.5px solid var(--glass-border);
+        border-radius: 14px;
+        padding: 12px;
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: border-color 0.3s;
+    }
+    .cal-day:hover {
+        border-color: var(--glass-border-hover);
+    }
+    .cal-day.is-today {
+        border-left: 3px solid var(--blue);
+    }
+    .cal-day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+    .cal-day-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .cal-day.is-today .cal-day-name {
+        color: var(--blue);
+    }
+    .cal-day-date {
+        font-size: 11px;
+        color: var(--text-tertiary);
+    }
+    .cal-day-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    /* ── Workout Card ── */
+    .workout-card {
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 13px;
+        position: relative;
+        border: 0.5px solid transparent;
+    }
+    .workout-card.sport-cycling {
+        background: rgba(10,132,255,0.1);
+        border-color: rgba(10,132,255,0.2);
+    }
+    .workout-card.sport-running {
+        background: rgba(48,209,88,0.1);
+        border-color: rgba(48,209,88,0.2);
+    }
+    .workout-card.sport-strength_upper,
+    .workout-card.sport-strength_lower,
+    .workout-card.sport-strength,
+    .workout-card.sport-training {
+        background: rgba(191,90,242,0.1);
+        border-color: rgba(191,90,242,0.2);
+    }
+    .workout-card.sport-rest,
+    .workout-card.sport-stretch {
+        background: rgba(245,245,247,0.04);
+        border-color: rgba(245,245,247,0.08);
+    }
+    .workout-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+    .workout-desc {
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-bottom: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .workout-meta {
+        font-size: 11px;
+        color: var(--text-secondary);
+        display: flex;
+        gap: 8px;
+    }
+    .workout-actions {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .workout-card:hover .workout-actions {
+        opacity: 1;
+    }
+    .workout-actions button {
+        background: rgba(255,255,255,0.08);
+        border: none;
+        color: var(--text-secondary);
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .workout-actions button:hover {
+        background: rgba(255,255,255,0.16);
+        color: var(--text-primary);
+    }
+    .workout-actions button.del:hover {
+        background: rgba(255,69,58,0.2);
+        color: var(--red);
+    }
+
+    /* ── Actual activity badge ── */
+    .actual-badge {
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.04);
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .actual-badge.done {
+        color: var(--green);
+    }
+
+    /* ── Add button ── */
+    .add-btn {
+        border: 1.5px dashed rgba(255,255,255,0.12);
+        border-radius: 10px;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-tertiary);
+        font-size: 18px;
+        cursor: pointer;
+        transition: border-color 0.2s, color 0.2s;
+        background: transparent;
+        width: 100%;
+    }
+    .add-btn:hover {
+        border-color: rgba(255,255,255,0.25);
+        color: var(--text-secondary);
+    }
+
+    /* ── Stats Row ── */
+    .stats-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 16px 0;
+    }
+
+    /* ── Progress Bar ── */
+    .progress-bar-bg {
+        background: rgba(255,255,255,0.06);
+        border-radius: 6px;
+        height: 10px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+    .progress-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.4s ease;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(8px);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-overlay.active {
+        display: flex;
+    }
+    .modal {
+        background: var(--bg-elevated);
+        backdrop-filter: blur(60px);
+        border: 0.5px solid var(--glass-border);
+        border-radius: 20px;
+        padding: 28px;
+        width: 480px;
+        max-width: 90vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow);
+    }
+    .modal h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+    .modal label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+        margin-top: 12px;
+    }
+    .modal label:first-of-type {
+        margin-top: 0;
+    }
+    .modal input, .modal select, .modal textarea {
+        width: 100%;
+        background: rgba(255,255,255,0.06);
+        border: 0.5px solid var(--glass-border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: var(--text-primary);
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .modal input:focus, .modal select:focus, .modal textarea:focus {
+        border-color: var(--blue);
+    }
+    .modal textarea {
+        resize: vertical;
+        min-height: 60px;
+    }
+    .modal-btns {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .modal-btns button {
+        padding: 8px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: background 0.2s;
+    }
+    .btn-cancel {
+        background: rgba(255,255,255,0.08);
+        color: var(--text-secondary);
+    }
+    .btn-cancel:hover {
+        background: rgba(255,255,255,0.14);
+    }
+    .btn-save {
+        background: var(--blue);
+        color: #fff;
+    }
+    .btn-save:hover {
+        background: #0977e6;
+    }
+
+    /* ── Week Summary Bar ── */
+    .week-summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        padding: 14px 18px;
+        background: var(--bg-elevated);
+        border: 0.5px solid var(--glass-border);
+        border-radius: 14px;
+    }
+    .ws-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+    .ws-tag.phase {
+        background: rgba(191,90,242,0.12);
+        color: var(--purple);
+    }
+    .ws-tag.phase-recovery {
+        background: rgba(48,209,88,0.12);
+        color: var(--green);
+    }
+    .ws-tag.phase-peak {
+        background: rgba(255,69,58,0.12);
+        color: var(--red);
+    }
+    .ws-tag.stat {
+        background: rgba(255,255,255,0.06);
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    .ws-divider {
+        width: 1px;
+        height: 20px;
+        background: rgba(255,255,255,0.08);
+        margin: 0 4px;
+    }
+
+    /* ── Details toggle for AI reasoning ── */
+    details.ai-reasoning summary::-webkit-details-marker { display: none; }
+    details.ai-reasoning[open] summary span:last-child { transform: rotate(90deg); display:inline-block; }
+
+    /* ── AI Reasoning Card ── */
+    .ai-reasoning {
+        background: rgba(191,90,242,0.06);
+        border: 0.5px solid rgba(191,90,242,0.15);
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-secondary);
+    }
+    .ai-reasoning .reasoning-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--purple);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .ai-reasoning .reasoning-body {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    .ai-reasoning .reasoning-item {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+    .ai-reasoning .reasoning-item .label {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+    }
+    .ai-reasoning .reasoning-item .value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* ── Workout Role Tag ── */
+    .workout-role {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        margin-left: 4px;
+        vertical-align: middle;
+        letter-spacing: 0.2px;
+    }
+    .workout-role.key {
+        background: rgba(255,159,10,0.15);
+        color: var(--orange);
+    }
+    .workout-role.endurance {
+        background: rgba(10,132,255,0.12);
+        color: var(--blue);
+    }
+    .workout-role.recovery {
+        background: rgba(48,209,88,0.12);
+        color: var(--green);
+    }
+    .workout-role.support {
+        background: rgba(191,90,242,0.12);
+        color: var(--purple);
+    }
+
+    /* ── Workout Detail Collapsible ── */
+    .workout-detail {
+        display: none;
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 0.5px solid rgba(255,255,255,0.06);
+    }
+    .workout-card.expanded .workout-detail {
+        display: block;
+    }
+    .workout-card {
+        cursor: pointer;
+    }
+
+    /* ── Role Pill ── */
+    .role-pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 6px;
+        letter-spacing: 0.2px;
+        vertical-align: middle;
+        margin-left: 4px;
+    }
+    .role-pill.pill-key {
+        background: rgba(255,69,58,0.15);
+        color: var(--red);
+    }
+    .role-pill.pill-recovery {
+        background: rgba(48,209,88,0.12);
+        color: var(--green);
+    }
+    .role-pill.pill-normal {
+        background: rgba(10,132,255,0.12);
+        color: var(--blue);
+    }
+    .role-pill.pill-support {
+        background: rgba(191,90,242,0.12);
+        color: var(--purple);
+    }
+
+    /* ── Prev/Next Week Mini Bar ── */
+    .week-context-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .week-context-card {
+        background: var(--bg-elevated);
+        border: 0.5px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        transition: border-color 0.2s;
+    }
+    .week-context-card:hover {
+        border-color: var(--glass-border-hover);
+    }
+    .week-context-card .wc-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: var(--text-tertiary);
+        margin-bottom: 6px;
+    }
+    .week-context-card .wc-stats {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .week-context-card .wc-stat {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+    .week-context-card .wc-stat .num {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+        .cal-grid {
+            grid-template-columns: 1fr;
+        }
+        .stats-row {
+            grid-template-columns: 1fr;
+        }
+        .week-context-row {
+            grid-template-columns: 1fr;
+        }
+        .week-summary {
+            gap: 4px;
+        }
+        .ai-reasoning .reasoning-body {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <h1>训练计划</h1>
+</div>
+
+<!-- ── Week Navigation ── -->
+<div class="week-nav">
+    <a href="/plan?week={{ prev_week }}">&#9664; 上周</a>
+    <span class="week-label">{{ week_start_display }} — {{ week_end_display }}</span>
+    <a href="/plan?week={{ next_week }}">下周 &#9654;</a>
+</div>
+
+<!-- ── 本周结论条 ── -->
+{% if total_planned > 0 %}
+<div class="card" style="margin:8px 0 16px; border-radius:14px; padding:16px 20px; border-left:3px solid var(--blue);">
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        {% if phase_name %}
+        <span class="pill pill-purple">{{ phase_name }}</span>
+        {% endif %}
+        <span style="font-size:15px; font-weight:600; color:var(--text-primary);">
+            本周：{{ '%.1f'|format(total_hours) }}h / {{ '%.0f'|format(week_tss_planned) }} TSS
+        </span>
+        <span style="font-size:13px; color:var(--text-secondary);">
+            {% if sport_counts.get('cycling', 0) > 0 %}&#x1F6B4;{{ sport_counts.cycling }}{% endif %}
+            {% if sport_counts.get('running', 0) > 0 %} &#x1F3C3;{{ sport_counts.running }}{% endif %}
+            {% set strength_total = sport_counts.get('training', 0) + sport_counts.get('strength_upper', 0) + sport_counts.get('strength_lower', 0) + sport_counts.get('strength', 0) %}
+            {% if strength_total > 0 %} &#x1F4AA;{{ strength_total }}{% endif %}
+        </span>
+        {% if readiness %}
+        <span class="pill {% if readiness.status == '可执行关键课' %}pill-green{% elif readiness.status == '可正常训练' %}pill-blue{% elif readiness.status == '建议恢复训练' %}pill-orange{% else %}pill-red{% endif %}" style="margin-left:auto;">
+            {{ readiness.status }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ═══ v1: 今日就绪度 + 偏差模块 ═══ #}
+{% if readiness %}
+{% set r = readiness %}
+<div class="card" style="margin-bottom:16px; padding:16px 20px; border-radius:14px;
+    {% if r.status == '可执行关键课' %}border-left:3px solid var(--green);
+    {% elif r.status == '可正常训练' %}border-left:3px solid var(--blue);
+    {% elif r.status == '建议恢复训练' %}border-left:3px solid var(--orange);
+    {% elif r.status == '建议休息' %}border-left:3px solid var(--red);
+    {% else %}border-left:3px solid var(--text-tertiary);{% endif %}">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:15px; font-weight:600;">
+            {% if r.status == '可执行关键课' %}🟢{% elif r.status == '可正常训练' %}🔵{% elif r.status == '建议恢复训练' %}🟡{% elif r.status == '建议休息' %}🔴{% else %}⚪{% endif %}
+            今日：{{ r.status }}
+        </span>
+        <span class="pill {% if r.confidence == '高' %}pill-green{% elif r.confidence == '中' %}pill-orange{% else %}pill-red{% endif %}">{{ r.confidence }}</span>
+    </div>
+    <div style="font-size:13px; color:var(--text-secondary); margin-top:6px;">{{ r.suggestion }}</div>
+</div>
+{% endif %}
+
+{% if deviation and deviation.planned_count > 0 %}
+{% set dev = deviation %}
+<div class="card" style="margin-bottom:16px; padding:16px 20px; border-radius:14px;">
+    <div class="card-label" style="margin-bottom:12px;">📊 本周执行偏差</div>
+
+    <div style="margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+            <span style="color:var(--text-secondary);">训练次数</span>
+            <span style="font-weight:500;">{{ dev.actual_count }}/{{ dev.planned_count }}</span>
+        </div>
+        <div style="height:5px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+            {% set pct1 = (dev.actual_count / dev.planned_count * 100) if dev.planned_count > 0 else 0 %}
+            <div style="height:100%; width:{{ [pct1, 100]|min }}%; background:var(--blue); border-radius:3px;"></div>
+        </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+            <span style="color:var(--text-secondary);">TSS</span>
+            <span style="font-weight:500;">{{ '%.0f'|format(dev.actual_tss) }}/{{ '%.0f'|format(dev.planned_tss) }} ({{ '%.0f'|format(dev.deviation_pct) }}%)</span>
+        </div>
+        <div style="height:5px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:{{ [dev.deviation_pct, 100]|min }}%; border-radius:3px;
+                background:{% if dev.deviation_pct >= 85 %}var(--green){% elif dev.deviation_pct >= 60 %}var(--orange){% else %}var(--red){% endif %};"></div>
+        </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px;">
+        <span class="pill {% if dev.judgment == '正常' %}pill-green{% elif dev.judgment == '略落后' %}pill-orange{% elif dev.judgment == '过载' %}pill-red{% else %}pill-red{% endif %}">{{ dev.judgment }}</span>
+        <span style="font-size:12px; color:var(--text-secondary);">{{ dev.suggestion }}</span>
+    </div>
+
+    {% if dev.skipped %}
+    <div style="margin-top:10px; padding-top:10px; border-top:0.5px solid var(--separator);">
+        <div style="font-size:12px; color:var(--text-tertiary); margin-bottom:6px;">已跳过：</div>
+        {% for s in dev.skipped %}
+        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:2px;">
+            {{ s.date }} — {{ s.title or s.sport }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{# ═══ v1: AI 计划决策依据 ═══ #}
+{% if phase_reason %}
+<div class="card" style="margin-bottom:16px; padding:16px 20px; border-radius:14px; border-left:3px solid var(--purple);">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <span style="font-size:14px;">🤖</span>
+        <span style="font-size:14px; font-weight:600;">AI 计划决策依据</span>
+    </div>
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.8;">
+        <div><span style="color:var(--text-primary); font-weight:500;">阶段判定：</span>{{ phase_reason }}</div>
+        {% if fitness %}
+        <div><span style="color:var(--text-primary); font-weight:500;">负荷依据：</span>CTL {{ '%.0f'|format(fitness.ctl) if fitness.ctl else '—' }} · ATL {{ '%.0f'|format(fitness.atl) if fitness.atl else '—' }} · TSB {{ '%.1f'|format(fitness.tsb) if fitness.tsb is not none else '—' }}</div>
+        {% endif %}
+        {% if readiness and readiness.raw_data %}
+        <div><span style="color:var(--text-primary); font-weight:500;">恢复依据：</span>
+            HRV {{ '%.0f'|format(readiness.raw_data.hrv) if readiness.raw_data.hrv else '—' }}ms ·
+            睡眠 {{ '%.1f'|format(readiness.raw_data.sleep_hours) if readiness.raw_data.sleep_hours else '—' }}h ·
+            RHR {{ '%.0f'|format(readiness.raw_data.resting_hr) if readiness.raw_data.resting_hr else '—' }}bpm
+        </div>
+        {% endif %}
+        {% if athlete.constraints %}
+        <div><span style="color:var(--text-primary); font-weight:500;">限制条件：</span>
+            {% if athlete.constraints is string %}{{ athlete.constraints }}{% else %}{{ athlete.constraints | join('、') }}{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ── AI Plan Generation Panel ── -->
+<div class="ai-panel">
+    <h3>&#x2728; AI 智能训练教练</h3>
+
+    {% if not has_api_key %}
+    <div class="no-api-key-hint">
+        &#x26A0; 尚未配置 AI 模型 API Key。请先到 <a href="/settings">设置页面</a> 配置 OpenRouter API Key 后即可使用 AI 生成训练计划。
+    </div>
+    {% else %}
+    <!-- 运动员档案概览 -->
+    <div class="profile-summary">
+        <div class="profile-item">
+            <div class="label">FTP</div>
+            <div class="value">{{ athlete.ftp }}W</div>
+        </div>
+        <div class="profile-item">
+            <div class="label">训练目标</div>
+            <div class="value" style="font-size:12px;">{{ athlete.goal[:40] }}{% if athlete.goal|length > 40 %}...{% endif %}</div>
+        </div>
+        <div class="profile-item">
+            <div class="label">主项</div>
+            <div class="value">{{ {'cycling':'骑行','running':'跑步','triathlon':'铁三','strength':'力量'}.get(athlete.focus, athlete.focus) }}</div>
+        </div>
+        <div class="profile-item">
+            <div class="label">每周时间</div>
+            <div class="value">{{ athlete.weekly_hours_available }}小时</div>
+        </div>
+        {% if athlete.event_name %}
+        <div class="profile-item">
+            <div class="label">目标赛事</div>
+            <div class="value" style="font-size:12px;">{{ athlete.event_name }} {% if athlete.event_date %}({{ athlete.event_date }}){% endif %}</div>
+        </div>
+        {% endif %}
+        {% if fitness %}
+        <div class="profile-item">
+            <div class="label">当前状态</div>
+            <div class="value">CTL {{ '%.0f'|format(fitness.ctl or 0) }} / TSB {{ '%.1f'|format(fitness.tsb or 0) }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 主要操作 -->
+    <div style="margin-bottom:8px;">
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:8px;">主要操作</div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button id="aiGenBtn" class="btn-ai btn-ai-primary" onclick="showGoalSetup()">
+                <span style="font-size:16px;">&#x2728;</span> 生成训练计划
+            </button>
+            {% if total_planned > 0 %}
+            <button class="btn-ai btn-ai-secondary" onclick="if(confirm('确定要重新生成本周计划？现有计划将被替换。')) generatePlan(0)">
+                &#x1F504; 重新生成本周
+            </button>
+            {% endif %}
+            <button class="btn-ai btn-ai-secondary" onclick="generatePlan(1)">
+                &#x27A1; 生成下周计划
+            </button>
+        </div>
+    </div>
+    <!-- 高级操作 -->
+    <div>
+        <div style="font-size:11px; font-weight:600; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:8px;">高级操作</div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            {% if total_planned > 0 %}
+            <button class="btn-ai btn-ai-secondary" onclick="if(confirm('确定要降低本周负荷？将减少强度和 TSS。')) downgradeWeek()">
+                &#x1F53D; 降低本周负荷
+            </button>
+            <button class="btn-ai btn-ai-secondary" onclick="if(confirm('确定要复用上周排布？')) reuseLastWeek()">
+                &#x1F501; 复用上周排布
+            </button>
+            {% endif %}
+            <a href="/settings" class="btn-ai btn-ai-secondary" style="text-decoration:none;">
+                &#x2699; 修改档案
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="aiGenStatus" class="ai-status"></div>
+</div>
+
+<!-- ── 目标设定 Modal（AI 生成前先确认目标） ── -->
+<div id="goalModal" class="modal-overlay">
+    <div class="modal" style="width:560px;">
+        <h3>&#x1F3AF; 确认训练目标</h3>
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">AI 将根据你的目标、当前体能和训练历史生成个性化周计划</p>
+
+        <label>训练重点</label>
+        <select id="goal_focus" style="width:100%; background:rgba(255,255,255,0.06); border:0.5px solid var(--glass-border); border-radius:10px; padding:10px 12px; color:var(--text-primary); font-size:14px;">
+            <option value="cycling" {% if athlete.focus == 'cycling' %}selected{% endif %}>骑行为主</option>
+            <option value="running" {% if athlete.focus == 'running' %}selected{% endif %}>跑步为主</option>
+            <option value="triathlon" {% if athlete.focus == 'triathlon' %}selected{% endif %}>铁人三项</option>
+            <option value="balanced" {% if athlete.focus == 'balanced' %}selected{% endif %}>均衡训练</option>
+        </select>
+
+        <label>训练目标</label>
+        <textarea id="goal_text" rows="3" style="width:100%; background:rgba(255,255,255,0.06); border:0.5px solid var(--glass-border); border-radius:10px; padding:10px 12px; color:var(--text-primary); font-size:14px; font-family:inherit; resize:vertical;" placeholder="例：提升骑行 FTP，每周至少1次跑步，2次力量训练">{{ athlete.goal }}</textarea>
+
+        <label>约束条件</label>
+        <textarea id="goal_constraints" rows="2" style="width:100%; background:rgba(255,255,255,0.06); border:0.5px solid var(--glass-border); border-radius:10px; padding:10px 12px; color:var(--text-primary); font-size:14px; font-family:inherit; resize:vertical;" placeholder="例：周三晚上有空、周末可以长骑">{{ athlete.constraints|join(', ') if athlete.constraints is iterable and athlete.constraints is not string else athlete.constraints }}</textarea>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
+            <div>
+                <label>每周可用时间</label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" id="goal_hours" value="{{ athlete.weekly_hours_available }}" min="3" max="25" style="flex:1; background:rgba(255,255,255,0.06); border:0.5px solid var(--glass-border); border-radius:10px; padding:10px 12px; color:var(--text-primary); font-size:14px;">
+                    <span style="font-size:13px; color:var(--text-secondary);">小时</span>
+                </div>
+            </div>
+            <div>
+                <label>目标赛事（可选）</label>
+                <input type="text" id="goal_event" value="{{ athlete.event_name }}" placeholder="赛事名称" style="width:100%; background:rgba(255,255,255,0.06); border:0.5px solid var(--glass-border); border-radius:10px; padding:10px 12px; color:var(--text-primary); font-size:14px;">
+            </div>
+        </div>
+
+        {% if fitness %}
+        <div style="background:rgba(255,255,255,0.04); border-radius:10px; padding:12px; margin-top:16px; font-size:13px;">
+            <div style="font-weight:600; color:var(--text-secondary); margin-bottom:6px;">当前体能状态</div>
+            <div style="display:flex; gap:24px;">
+                <span>CTL: <strong style="color:var(--blue);">{{ '%.0f'|format(fitness.ctl or 0) }}</strong></span>
+                <span>ATL: <strong style="color:var(--orange);">{{ '%.0f'|format(fitness.atl or 0) }}</strong></span>
+                <span>TSB: <strong style="color:{% if (fitness.tsb or 0) >= 0 %}var(--green){% else %}var(--red){% endif %};">{{ '%.1f'|format(fitness.tsb or 0) }}</strong></span>
+            </div>
+            {% if (fitness.tsb or 0) < -20 %}
+            <div style="color:var(--orange); margin-top:6px;">&#x26A0; TSB 偏低，AI 会优先安排恢复</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeGoalModal()">取消</button>
+            <button class="btn-save" onclick="generateFromGoal()" style="background:linear-gradient(135deg, var(--purple), var(--blue));">
+                &#x2728; 生成本周计划
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Week Summary Bar (P0) ── -->
+{% if total_planned > 0 %}
+<div class="week-summary">
+    <span class="ws-tag phase{% if phase == 'recovery' %}-recovery{% elif phase == 'peak' %}-peak{% endif %}">
+        {% if phase == 'base' %}&#x1F7E2;{% elif phase == 'build' %}&#x1F7E1;{% elif phase == 'peak' %}&#x1F534;{% elif phase == 'recovery' %}&#x1F49A;{% else %}&#x26AA;{% endif %}
+        {{ phase_name }}
+    </span>
+    <span class="ws-divider"></span>
+    <span class="ws-tag stat">&#x23F1; {{ '%.1f'|format(total_hours) }}h</span>
+    <span class="ws-tag stat">&#x1F4CA; TSS {{ '%.0f'|format(week_tss_planned) }}</span>
+    {% if sport_counts.get('cycling', 0) > 0 %}
+    <span class="ws-tag stat">&#x1F6B4; {{ sport_counts.cycling }}次骑行</span>
+    {% endif %}
+    {% if sport_counts.get('running', 0) > 0 %}
+    <span class="ws-tag stat">&#x1F3C3; {{ sport_counts.running }}次跑步</span>
+    {% endif %}
+    {% if sport_counts.get('training', 0) + sport_counts.get('strength_upper', 0) + sport_counts.get('strength_lower', 0) + sport_counts.get('strength', 0) > 0 %}
+    <span class="ws-tag stat">&#x1F4AA; {{ sport_counts.get('training', 0) + sport_counts.get('strength_upper', 0) + sport_counts.get('strength_lower', 0) + sport_counts.get('strength', 0) }}次力量</span>
+    {% endif %}
+    {% if sport_counts.get('rest', 0) > 0 %}
+    <span class="ws-tag stat">&#x1F9D8; {{ sport_counts.rest }}天休息</span>
+    {% endif %}
+    <span class="ws-divider"></span>
+    <span class="ws-tag stat" style="font-size:11px; color:var(--text-tertiary);">
+        约束: TSS&le;{{ phase_constraints.max_daily_tss }}/日 &middot; 强度&le;{{ phase_constraints.max_intensity_days }}天 &middot; 休息&ge;{{ phase_constraints.min_rest_days }}天
+    </span>
+</div>
+{% endif %}
+
+<!-- ── AI Reasoning (P0) — 默认折叠 ── -->
+{% if total_planned > 0 and phase_reason %}
+<details class="ai-reasoning" style="cursor:pointer;">
+    <summary style="list-style:none; display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--purple); text-transform:uppercase; letter-spacing:0.3px;">
+        &#x1F9E0; 查看本周生成依据
+        <span style="font-size:10px; color:var(--text-tertiary); margin-left:auto;">&#x25B6;</span>
+    </summary>
+    <div class="reasoning-body" style="margin-top:12px;">
+        <div class="reasoning-item">
+            <span class="label">训练阶段</span>
+            <span class="value">{{ phase_name }}</span>
+        </div>
+        <div class="reasoning-item">
+            <span class="label">判定原因</span>
+            <span class="value" style="font-weight:500;">{{ phase_reason }}</span>
+        </div>
+        {% if last_plan_trigger %}
+        <div class="reasoning-item">
+            <span class="label">触发策略</span>
+            <span class="value" style="font-weight:500;">{{ last_plan_trigger }}</span>
+        </div>
+        {% endif %}
+        {% if fitness %}
+        <div class="reasoning-item">
+            <span class="label">体能</span>
+            <span class="value">CTL {{ '%.0f'|format(fitness.ctl or 0) }} / TSB {{ '%.1f'|format(fitness.tsb or 0) }}</span>
+        </div>
+        {% endif %}
+    </div>
+</details>
+{% endif %}
+
+<!-- ── Last / Next Week Context (P1) ── -->
+{% if prev_total > 0 or next_total > 0 %}
+<div class="week-context-row">
+    <!-- Last Week -->
+    <a href="/plan?week={{ prev_week }}" class="week-context-card" style="text-decoration:none;">
+        <div class="wc-title">&#x2B05; 上周回顾</div>
+        {% if prev_total > 0 %}
+        <div class="wc-stats">
+            <div class="wc-stat">
+                <span class="num">{{ '%.0f'|format(prev_tss_actual) }}</span>
+                <span>/ {{ '%.0f'|format(prev_tss_planned) }} TSS</span>
+            </div>
+            <div class="wc-stat">
+                <span class="num">{{ prev_completed }}</span>
+                <span>/ {{ prev_total }} 完成</span>
+            </div>
+            {% if prev_tss_planned > 0 %}
+            {% set prev_pct = (prev_tss_actual / prev_tss_planned * 100) %}
+            <div class="wc-stat">
+                <span class="num" style="color:{% if prev_pct >= 90 %}var(--green){% elif prev_pct >= 50 %}var(--orange){% else %}var(--red){% endif %};">{{ '%.0f'|format(prev_pct) }}%</span>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="color:var(--text-tertiary);">未安排训练</div>
+        {% endif %}
+    </a>
+    <!-- Next Week -->
+    <a href="/plan?week={{ next_week }}" class="week-context-card" style="text-decoration:none;">
+        <div class="wc-title">下周预览 &#x27A1;</div>
+        {% if next_total > 0 %}
+        <div class="wc-stats">
+            <div class="wc-stat">
+                <span class="num">{{ '%.0f'|format(next_tss_planned) }}</span>
+                <span>TSS</span>
+            </div>
+            <div class="wc-stat">
+                <span class="num">{{ next_total }}</span>
+                <span>课</span>
+            </div>
+            {% for sport, cnt in next_sport_counts.items() %}
+            {% if sport != 'rest' %}
+            <div class="wc-stat">
+                {% if sport == 'cycling' %}&#x1F6B4;{% elif sport == 'running' %}&#x1F3C3;{% else %}&#x1F4AA;{% endif %}
+                <span>{{ cnt }}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="color:var(--text-tertiary);">尚未生成</div>
+        {% endif %}
+    </a>
+</div>
+{% endif %}
+
+<!-- ── Weekly Calendar ── -->
+<div class="cal-grid">
+    {% for day in weekdays %}
+    <div class="cal-day{% if day.is_today %} is-today{% endif %}">
+        <div class="cal-day-header">
+            <span class="cal-day-name">{{ day.day_name }}</span>
+            <span class="cal-day-date">{{ day.day_short }}</span>
+        </div>
+        <div class="cal-day-body">
+            {% for w in day.workouts %}
+            {% set tss = w.target_tss or 0 %}
+            {% set intensity = (w.target_intensity or '')|lower %}
+            <div class="workout-card sport-{{ w.sport or 'rest' }}" onclick="toggleWorkoutDetail(this)">
+                {# ── 紧凑视图：图标 + 角色标签 + 标题 + 时长/TSS + 状态 ── #}
+                <div class="workout-title">
+                    {% if w.sport == 'cycling' %}&#x1F6B4;
+                    {% elif w.sport == 'running' %}&#x1F3C3;
+                    {% elif w.sport in ['strength_upper', 'strength_lower', 'strength', 'training'] %}&#x1F4AA;
+                    {% elif w.sport in ['rest', 'stretch'] %}&#x1F9D8;
+                    {% endif %}
+                    {# ── P1: Role Pill ── #}
+                    {% if w.sport in ['training', 'strength', 'strength_upper', 'strength_lower'] %}
+                        <span class="role-pill pill-support">辅助</span>
+                    {% elif 'z4' in intensity or 'z5' in intensity or 'vo2' in intensity or 'threshold' in intensity or '间歇' in intensity or 'zone 4' in intensity or 'zone 5' in intensity or tss >= 80 %}
+                        <span class="role-pill pill-key">关键课</span>
+                    {% elif 'z1' in intensity or 'z2' in intensity or 'recovery' in intensity or '恢复' in intensity or 'zone 1' in intensity or 'zone 2' in intensity or w.sport in ['rest', 'stretch'] %}
+                        <span class="role-pill pill-recovery">恢复</span>
+                    {% else %}
+                        <span class="role-pill pill-normal">正常</span>
+                    {% endif %}
+                    {{ w.title or w.sport }}
+                </div>
+                <div class="workout-meta">
+                    {% if w.target_duration_min %}<span>{{ w.target_duration_min|int }}分钟</span>{% endif %}
+                    {% if w.target_tss %}<span>TSS {{ w.target_tss|int }}</span>{% endif %}
+                </div>
+                {% if w.compliance_status == 'completed' %}
+                <div class="actual-badge done">&#10003; 已完成{% if w.actual_tss %} · TSS {{ w.actual_tss|int }}{% endif %}{% if w.actual_duration_min %} · {{ w.actual_duration_min|int }}分{% endif %}</div>
+                {% elif w.compliance_status == 'missed' %}
+                <div class="actual-badge" style="color:var(--orange);">&#x25CB; 未完成</div>
+                {% elif w.compliance_status == 'skipped' %}
+                <div class="actual-badge" style="color:var(--text-tertiary);">&#x23ED; 已跳过</div>
+                {% endif %}
+
+                {# ── 展开详情（默认隐藏） ── #}
+                <div class="workout-detail">
+                    {% if w.target_intensity %}
+                    <div style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">
+                        <span style="color:var(--text-tertiary);">强度：</span>{{ w.target_intensity }}
+                    </div>
+                    {% endif %}
+                    {% if w.description %}
+                    <div class="workout-desc" style="-webkit-line-clamp:unset;">{{ w.description }}</div>
+                    {% endif %}
+                    <div class="workout-actions" style="position:static; opacity:1; margin-top:6px;">
+                        <button onclick="event.stopPropagation(); editWorkout({{ w.id }}, '{{ day.date }}', '{{ w.sport }}', '{{ w.title|e }}', `{{ w.description|default('',true)|e }}`, {{ w.target_duration_min or 0 }}, {{ w.target_tss or 0 }}, '{{ w.target_intensity|default('',true) }}')">编辑</button>
+                        <button class="del" onclick="event.stopPropagation(); deleteWorkout({{ w.id }})">删除</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for a in day.activities %}
+            {% set matched = false %}
+            {% for w in day.workouts %}
+                {% if w.actual_activity_id == a.id|string %}{% set matched = true %}{% endif %}
+            {% endfor %}
+            {% if not matched %}
+            <div class="actual-badge">
+                {% if a.sport == 'cycling' %}&#x1F6B4;
+                {% elif a.sport == 'running' %}&#x1F3C3;
+                {% else %}&#x1F4AA;{% endif %}
+                {{ a.name or a.sport }} · {{ '%d'|format((a.total_timer_s or 0) / 60) }}分
+                {% if a.tss %} · TSS {{ '%.0f'|format(a.tss) }}{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            <button class="add-btn" onclick="addWorkout('{{ day.date }}')">+</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ── Stats Row ── -->
+<div class="stats-row">
+    <div class="card">
+        <div class="card-label">本周 TSS 进度</div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <div>
+                <span style="font-size:28px; font-weight:700; color:var(--orange); letter-spacing:-0.8px; font-variant-numeric:tabular-nums;">{{ '%.0f'|format(week_tss_actual) }}</span>
+                <span style="font-size:14px; color:var(--text-tertiary);"> / {{ '%.0f'|format(week_tss_planned) }}</span>
+            </div>
+            {% if week_tss_planned > 0 %}
+            <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">{{ '%.0f'|format(week_tss_actual / week_tss_planned * 100) }}%</span>
+            {% endif %}
+        </div>
+        <div class="progress-bar-bg">
+            {% set pct = (week_tss_actual / week_tss_planned * 100) if week_tss_planned > 0 else 0 %}
+            {% set bar_color = 'var(--green)' if pct >= 90 else ('var(--orange)' if pct >= 50 else 'var(--red)') %}
+            <div class="progress-bar-fill" style="width:{{ [pct, 100]|min }}%; background:{{ bar_color }};"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">本周约束满足情况</div>
+        {% if constraint_status and constraint_status.constraints %}
+        {% for c in constraint_status.constraints %}
+        <div style="display:flex; align-items:baseline; gap:8px; font-size:14px; color:var(--text-secondary); padding:6px 0; border-bottom:0.5px solid var(--separator);">
+            {% if c.status == 'met' %}&#x2705;{% elif c.status == 'unmet' %}&#x274C;{% else %}&#x1F504;{% endif %}
+            {{ c.rule }}：{{ c.detail }}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="color:var(--text-tertiary); font-size:14px; padding:8px 0;">暂无约束规则</div>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- ── 恢复约束 ── -->
+<div class="card" style="margin:16px 0; border-radius:16px; padding:20px 24px;">
+    <div class="card-label">恢复约束</div>
+    <div style="font-size:14px; color:var(--text-secondary); line-height:1.8;">
+        {% if readiness and readiness.raw_data.tsb is not none %}
+        当前负荷状态：TSB {{ '%.1f'|format(readiness.raw_data.tsb) }}，
+        {% if readiness.raw_data.tsb < -15 %}疲劳累积较高，建议减量
+        {% elif readiness.raw_data.tsb < -5 %}处于可训练但需注意恢复区间
+        {% elif readiness.raw_data.tsb <= 0 %}恢复中，正常训练
+        {% else %}状态良好{% endif %}。
+        <br>建议：{{ readiness.suggestion }}
+        {% else %}
+        暂无 TSB 数据
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── 页面免责声明 ── -->
+<div style="margin-top:40px; padding:20px 0; border-top:0.5px solid var(--separator); text-align:center;">
+    <p style="font-size:12px; color:var(--text-tertiary); line-height:1.6;">
+        &#x26A0;&#xFE0F; 本页面数据及 AI 生成的训练计划仅供参考，不构成专业运动训练建议。<br>
+        请根据自身身体状况合理安排训练，必要时咨询专业教练或医生。
+    </p>
+</div>
+
+<!-- ── Add/Edit Workout Modal ── -->
+<div id="workoutModal" class="modal-overlay">
+    <div class="modal">
+        <h3 id="modalTitle">添加训练</h3>
+        <input type="hidden" id="wk_id">
+        <label>日期</label>
+        <input type="date" id="wk_date">
+        <label>运动类型</label>
+        <select id="wk_sport">
+            <option value="cycling">&#x1F6B4; 骑行</option>
+            <option value="running">&#x1F3C3; 跑步</option>
+            <option value="training">&#x1F4AA; 力量训练</option>
+            <option value="rest">&#x1F9D8; 休息/拉伸</option>
+        </select>
+        <label>标题</label>
+        <input type="text" id="wk_title" placeholder="例：有氧骑行 Z2">
+        <label>描述</label>
+        <textarea id="wk_desc" rows="4" placeholder="训练内容详情..."></textarea>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+            <div>
+                <label>时长（分钟）</label>
+                <input type="number" id="wk_duration" placeholder="60">
+            </div>
+            <div>
+                <label>目标 TSS</label>
+                <input type="number" id="wk_tss" placeholder="80">
+            </div>
+            <div>
+                <label>强度</label>
+                <input type="text" id="wk_intensity" placeholder="Z2">
+            </div>
+        </div>
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn-save" onclick="saveWorkout()">保存</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 展开/收起训练卡片详情 ──
+function toggleWorkoutDetail(el) {
+    const detail = el.querySelector('.workout-detail');
+    if (detail) {
+        el.classList.toggle('expanded');
+        detail.style.display = detail.style.display === 'none' || detail.style.display === '' ? 'block' : 'none';
+    }
+}
+
+function addWorkout(dateStr) {
+    document.getElementById('modalTitle').textContent = '添加训练';
+    document.getElementById('wk_id').value = '';
+    document.getElementById('wk_date').value = dateStr;
+    document.getElementById('wk_sport').value = 'cycling';
+    document.getElementById('wk_title').value = '';
+    document.getElementById('wk_desc').value = '';
+    document.getElementById('wk_duration').value = '';
+    document.getElementById('wk_tss').value = '';
+    document.getElementById('wk_intensity').value = '';
+    document.getElementById('workoutModal').classList.add('active');
+}
+
+function editWorkout(id, dateStr, sport, title, desc, duration, tss, intensity) {
+    document.getElementById('modalTitle').textContent = '编辑训练';
+    document.getElementById('wk_id').value = id;
+    document.getElementById('wk_date').value = dateStr;
+    document.getElementById('wk_sport').value = sport;
+    document.getElementById('wk_title').value = title;
+    document.getElementById('wk_desc').value = desc;
+    document.getElementById('wk_duration').value = duration || '';
+    document.getElementById('wk_tss').value = tss || '';
+    document.getElementById('wk_intensity').value = intensity || '';
+    document.getElementById('workoutModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('workoutModal').classList.remove('active');
+}
+
+async function saveWorkout() {
+    const id = document.getElementById('wk_id').value;
+    const data = {
+        date: document.getElementById('wk_date').value,
+        sport: document.getElementById('wk_sport').value,
+        title: document.getElementById('wk_title').value,
+        description: document.getElementById('wk_desc').value,
+        target_duration_min: parseFloat(document.getElementById('wk_duration').value) || null,
+        target_tss: parseFloat(document.getElementById('wk_tss').value) || null,
+        target_intensity: document.getElementById('wk_intensity').value || null,
+    };
+    if (id) data.id = parseInt(id);
+
+    await fetch('/api/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    closeModal();
+    location.reload();
+}
+
+async function deleteWorkout(id) {
+    if (!confirm('确定要删除这个训练吗？')) return;
+    await fetch('/api/workouts/' + id, { method: 'DELETE' });
+    location.reload();
+}
+
+// Close modal on backdrop click
+document.getElementById('workoutModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ── Goal Setup Modal ──
+function showGoalSetup() {
+    document.getElementById('goalModal').classList.add('active');
+}
+
+function closeGoalModal() {
+    document.getElementById('goalModal').classList.remove('active');
+}
+
+document.getElementById('goalModal').addEventListener('click', function(e) {
+    if (e.target === this) closeGoalModal();
+});
+
+async function generateFromGoal() {
+    // Save goal settings first, then generate
+    const profile = {
+        focus: document.getElementById('goal_focus').value,
+        goal: document.getElementById('goal_text').value,
+        weekly_hours_available: parseInt(document.getElementById('goal_hours').value) || 10,
+        event_name: document.getElementById('goal_event').value,
+        constraints: document.getElementById('goal_constraints').value.split(/[,，、\n]/).map(s => s.trim()).filter(Boolean),
+    };
+
+    // Save to settings
+    const settingsData = {
+        athlete_focus: profile.focus,
+        athlete_goal: profile.goal,
+        athlete_weekly_hours_available: String(profile.weekly_hours_available),
+        athlete_event_name: profile.event_name,
+        athlete_constraints: JSON.stringify(profile.constraints),
+    };
+    try {
+        await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settingsData),
+        });
+    } catch(e) { /* settings save is best-effort */ }
+
+    closeGoalModal();
+    generatePlan(0, profile);
+}
+
+// ── AI Plan Generation ──
+async function generatePlan(weekOffset, profileOverride) {
+    const btn = document.getElementById('aiGenBtn');
+    const status = document.getElementById('aiGenStatus');
+
+    // Determine week offset from current view
+    if (weekOffset === undefined) {
+        const weekStart = '{{ week_start }}';
+        const today = new Date().toISOString().slice(0, 10);
+        weekOffset = weekStart > today ? 1 : 0;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.innerHTML = '<span style="font-size:16px;">&#x23F3;</span> AI 分析中...';
+    status.style.display = 'block';
+    status.style.background = 'rgba(191,90,242,0.1)';
+    status.style.color = 'var(--purple)';
+    status.innerHTML = '&#x1F916; 正在分析你的训练数据、体能状态和肌肉疲劳...<br>根据你的目标和约束生成个性化周计划（现有计划将被替换），约需 10-20 秒';
+
+    const body = { week_offset: weekOffset };
+    if (profileOverride) body.profile = profileOverride;
+
+    try {
+        const resp = await fetch('/api/generate-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const result = await resp.json();
+
+        if (result.ok) {
+            status.style.background = 'rgba(48,209,88,0.1)';
+            status.style.color = 'var(--green)';
+            let detail = `&#x2705; 已生成 ${result.count} 个训练！`;
+            if (result.workouts) {
+                const totalTss = result.workouts.reduce((s, w) => s + (w.target_tss || 0), 0);
+                const totalMin = result.workouts.reduce((s, w) => s + (w.target_duration_min || 0), 0);
+                detail += ` 周TSS: ${Math.round(totalTss)}, 总时长: ${Math.round(totalMin/60*10)/10}小时`;
+            }
+            detail += '<br>页面即将刷新...';
+            status.innerHTML = detail;
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            status.style.background = 'rgba(255,69,58,0.1)';
+            status.style.color = 'var(--red)';
+            const errMsg = result.detail || JSON.stringify(result);
+            if (errMsg.includes('API Key') || errMsg.includes('api_key')) {
+                status.innerHTML = '&#x26A0; API Key 未设置。请先到 <a href="/settings" style="color:var(--blue);font-weight:600;">设置页面</a> 配置 OpenRouter API Key。';
+            } else {
+                status.innerHTML = '&#x274C; 生成失败: ' + errMsg;
+            }
+        }
+    } catch (err) {
+        status.style.background = 'rgba(255,69,58,0.1)';
+        status.style.color = 'var(--red)';
+        status.innerHTML = '&#x274C; 请求失败: ' + err.message;
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerHTML = '<span style="font-size:16px;">&#x2728;</span> 生成训练计划';
+    }
+}
+
+// ── 高级操作: 降低本周负荷 ──
+async function downgradeWeek() {
+    const status = document.getElementById('aiGenStatus');
+    status.style.display = 'block';
+    status.style.background = 'rgba(191,90,242,0.1)';
+    status.style.color = 'var(--purple)';
+    status.innerHTML = '&#x1F916; 正在降低本周负荷...';
+    try {
+        const resp = await fetch('/api/generate-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week_offset: 0, downgrade: true }),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            status.style.background = 'rgba(48,209,88,0.1)';
+            status.style.color = 'var(--green)';
+            status.innerHTML = '&#x2705; 已降低本周负荷，页面即将刷新...';
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            status.style.background = 'rgba(255,69,58,0.1)';
+            status.style.color = 'var(--red)';
+            status.innerHTML = '&#x274C; 操作失败: ' + (result.detail || JSON.stringify(result));
+        }
+    } catch (err) {
+        status.style.background = 'rgba(255,69,58,0.1)';
+        status.style.color = 'var(--red)';
+        status.innerHTML = '&#x274C; 请求失败: ' + err.message;
+    }
+}
+
+// ── 高级操作: 复用上周排布 ──
+async function reuseLastWeek() {
+    const status = document.getElementById('aiGenStatus');
+    status.style.display = 'block';
+    status.style.background = 'rgba(191,90,242,0.1)';
+    status.style.color = 'var(--purple)';
+    status.innerHTML = '&#x1F916; 正在复用上周排布...';
+    try {
+        const resp = await fetch('/api/generate-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week_offset: 0, reuse_last_week: true }),
+        });
+        const result = await resp.json();
+        if (result.ok) {
+            status.style.background = 'rgba(48,209,88,0.1)';
+            status.style.color = 'var(--green)';
+            status.innerHTML = '&#x2705; 已复用上周排布，页面即将刷新...';
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            status.style.background = 'rgba(255,69,58,0.1)';
+            status.style.color = 'var(--red)';
+            status.innerHTML = '&#x274C; 操作失败: ' + (result.detail || JSON.stringify(result));
+        }
+    } catch (err) {
+        status.style.background = 'rgba(255,69,58,0.1)';
+        status.style.color = 'var(--red)';
+        status.innerHTML = '&#x274C; 请求失败: ' + err.message;
+    }
+}
+</script>
+{% endblock %}

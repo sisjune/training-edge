@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  training-edge:
+    build: .
+    image: training-edge:latest
+    container_name: training-edge
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    ports:
+      - "8420:8420"
+    volumes:
+      # 群晖: 绑定挂载到 /volume1/docker/training-edge/data
+      # 通用: 也可使用 Docker named volume (training_edge_data:/data)
+      - /volume1/docker/training-edge/data:/data
+    environment:
+      - TRAININGEDGE_DB_PATH=/data/training_edge.db
+      - TRAININGEDGE_FIT_DIR=/data/fit_files
+      - TRAININGEDGE_LOG_FILE=/data/training_edge.log
+      - TRAININGEDGE_FTP=229
+      - TRAININGEDGE_MAX_HR=192
+      - TRAININGEDGE_RESTING_HR=42
+      - GARMINTOKENS=/data/tokens
+      # OpenRouter API Key — 在此填入，或部署后在 Web 设置页面配置
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8420/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
