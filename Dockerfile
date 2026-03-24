@@ -2,10 +2,10 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
-
 COPY . .
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
+    pip install --upgrade pip setuptools && \
+    pip install --no-cache-dir .
 
 RUN mkdir -p /data/fit_files /data/tokens
 

@@ -17,7 +17,7 @@ import secrets
 logger = logging.getLogger(__name__)
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -94,6 +94,8 @@ TEMPLATES_DIR = BASE_DIR / "web" / "templates"
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.auto_reload = True
+templates.env.cache = None  # Fix Python 3.13 + Jinja2 cache unhashable dict bug
 
 
 # ---------------------------------------------------------------------------
@@ -947,6 +949,27 @@ def api_list_workouts(
     with database.get_db() as conn:
         rows = database.list_planned_workouts(conn, date_from, date_to)
     return {"ok": True, "count": len(rows), "workouts": rows}
+
+
+@app.get("/api/calendar.ics", dependencies=[Depends(verify_api_key)])
+def api_calendar_ics(
+    days: int = Query(30, ge=1, le=180),
+):
+    """ICS calendar feed for planned workouts.
+
+    Supports iOS calendar subscription via ?api_key=xxx query param
+    (verify_api_key checks both header and query param).
+    """
+    from engine.calendar import generate_ics, get_workouts_for_calendar
+
+    with database.get_db() as conn:
+        workouts = get_workouts_for_calendar(conn, days=days)
+    ics_content = generate_ics(workouts)
+    return Response(
+        content=ics_content,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": "inline; filename=training-edge.ics"},
+    )
 
 
 @app.post("/api/templates", dependencies=[Depends(verify_api_key)])

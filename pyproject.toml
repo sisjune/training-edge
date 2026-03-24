@@ -5,7 +5,7 @@ description = "Self-hosted sports analytics — FIT parsing, training metrics, a
 requires-python = ">=3.10"
 dependencies = [
     "fitparse>=1.2.0",
-    "fastapi>=0.104",
+    "fastapi>=0.104,<1.0",
     "uvicorn[standard]>=0.24",
     "jinja2>=3.1",
     "garminconnect>=0.2.8",

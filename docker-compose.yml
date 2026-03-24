@@ -23,6 +23,7 @@ services:
       - TRAININGEDGE_MAX_HR=192
       - TRAININGEDGE_RESTING_HR=42
       - GARMINTOKENS=/data/tokens
+      - TZ=Asia/Shanghai
       # OpenRouter API Key — 在此填入，或部署后在 Web 设置页面配置
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
     healthcheck:

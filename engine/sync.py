@@ -6,9 +6,12 @@ import io
 import json
 import os
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Local timezone for date assignment (Garmin FIT stores UTC)
+_LOCAL_TZ = timezone(timedelta(hours=int(os.environ.get("TRAININGEDGE_TZ_OFFSET", "8"))))
 
 from . import fit_parser, metrics, database
 
@@ -157,7 +160,14 @@ def process_activity(
     # 6. Store in database
     activity_date = None
     if session.start_time:
-        activity_date = session.start_time.strftime("%Y-%m-%d") if isinstance(session.start_time, datetime) else str(session.start_time)[:10]
+        st = session.start_time
+        if isinstance(st, datetime):
+            # FIT stores UTC — convert to local timezone for date assignment
+            if st.tzinfo is None:
+                st = st.replace(tzinfo=timezone.utc)
+            activity_date = st.astimezone(_LOCAL_TZ).strftime("%Y-%m-%d")
+        else:
+            activity_date = str(st)[:10]
 
     activity_data = {
         "id": activity_id,
