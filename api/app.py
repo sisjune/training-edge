@@ -972,6 +972,41 @@ def api_calendar_ics(
     )
 
 
+@app.get("/api/intervals/week-plan", dependencies=[Depends(verify_api_key)])
+def api_intervals_week_plan(week: int = Query(0, ge=-4, le=4)):
+    """Get planned events from Intervals.icu for a given week.
+
+    week=0 is this week, week=1 is next week, etc.
+    Merges Intervals cycling/running plan with TrainingEdge strength suggestions.
+    """
+    from engine import intervals
+    if not intervals.is_configured():
+        return {"ok": False, "error": "Intervals.icu not configured"}
+
+    try:
+        plan = intervals.fetch_week_plan(week_offset=week)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+    # Suggest strength days on rest days (skip Monday = index 0)
+    strength_suggestions = []
+    for d in plan["rest_days"]:
+        from datetime import date as dt_date
+        weekday = dt_date.fromisoformat(d).weekday()
+        if weekday == 0:  # Monday = rest
+            continue
+        strength_suggestions.append({
+            "date": d,
+            "type": "Strength",
+            "name": "力量训练" if weekday in (2, 4) else "轻量辅助训练",
+            "source": "TrainingEdge",
+        })
+
+    plan["strength_suggestions"] = strength_suggestions[:3]  # max 3 strength days
+    plan["ok"] = True
+    return plan
+
+
 @app.post("/api/templates", dependencies=[Depends(verify_api_key)])
 async def api_upsert_template(request: Request):
     """Create or update a weekly template."""

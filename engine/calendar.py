@@ -141,13 +141,53 @@ def get_workouts_for_calendar(
     conn: sqlite3.Connection,
     days: int = 30,
 ) -> List[Dict[str, Any]]:
-    """Fetch planned workouts for calendar generation."""
+    """Fetch planned workouts for calendar generation.
+
+    Merges:
+    1. Intervals.icu planned events (cycling/running) — if configured
+    2. TrainingEdge planned_workouts table (strength, local overrides)
+    """
     from_date = date.today().isoformat()
     to_date = (date.today() + timedelta(days=days)).isoformat()
+
+    # Local planned workouts (strength, etc.)
     rows = conn.execute(
         """SELECT * FROM planned_workouts
            WHERE date >= ? AND date <= ?
            ORDER BY date""",
         (from_date, to_date),
     ).fetchall()
-    return [dict(r) for r in rows]
+    local_workouts = [dict(r) for r in rows]
+
+    # Intervals.icu events (cycling/running)
+    intervals_workouts = []
+    try:
+        from engine import intervals
+        if intervals.is_configured():
+            events = intervals.fetch_planned_events(from_date, to_date)
+            for e in events:
+                if e.get("category") != "WORKOUT":
+                    continue
+                sport_map = {"Ride": "cycling", "Run": "running", "Swim": "swimming"}
+                intervals_workouts.append({
+                    "date": e["date"],
+                    "sport": sport_map.get(e.get("type"), "training"),
+                    "title": e.get("name", ""),
+                    "description": e.get("description", ""),
+                    "target_tss": e.get("planned_tss"),
+                    "target_duration_min": (e.get("planned_duration_s") or 0) / 60 or None,
+                    "source": "intervals.icu",
+                })
+    except Exception:
+        pass  # Intervals unavailable, use local only
+
+    # Merge: Intervals events take priority for cycling/running
+    intervals_dates = {(w["date"], w["sport"]) for w in intervals_workouts}
+    merged = list(intervals_workouts)
+    for w in local_workouts:
+        key = (w.get("date"), w.get("sport"))
+        if key not in intervals_dates:
+            merged.append(w)
+
+    merged.sort(key=lambda x: x.get("date", ""))
+    return merged

@@ -17,21 +17,48 @@ INTERVALS_BASE_URL = os.environ.get("INTERVALS_API_BASE", "https://intervals.icu
 
 
 def _find_api_key() -> Optional[str]:
-    """Find Intervals.icu API key from env or existing skill's state."""
+    """Find Intervals.icu API key from env, DB settings, or local state files."""
     # 1. Environment variable
     env_key = os.environ.get("INTERVALS_API_KEY", "").strip()
     if env_key:
         return env_key
 
-    # 2. Existing skill's key file
-    key_file = (
-        Path(__file__).resolve().parents[3]
-        / "skills" / "garmin-cycling-coach" / "state" / "intervals_api_key"
-    )
-    if key_file.exists():
-        key = key_file.read_text(encoding="utf-8").strip()
-        if key:
-            return key
+    # 2. DB settings (set via web settings page)
+    try:
+        with database.get_db() as conn:
+            row = conn.execute(
+                "SELECT value FROM settings WHERE key = 'intervals_api_key'"
+            ).fetchone()
+            if row and row[0]:
+                return row[0].strip()
+    except Exception:
+        pass
+
+    # 3. Local state file (inside project or container)
+    for candidate in [
+        Path(__file__).resolve().parent.parent / "state" / "intervals_api_key",
+        Path("/data") / "intervals_api_key",
+    ]:
+        try:
+            if candidate.exists():
+                key = candidate.read_text(encoding="utf-8").strip()
+                if key:
+                    return key
+        except Exception:
+            pass
+
+    # 4. OpenClaw skill's key file (development environment)
+    try:
+        skill_key = (
+            Path(__file__).resolve().parents[3]
+            / "skills" / "garmin-cycling-coach" / "state" / "intervals_api_key"
+        )
+        if skill_key.exists():
+            key = skill_key.read_text(encoding="utf-8").strip()
+            if key:
+                return key
+    except (IndexError, Exception):
+        pass
 
     return None
 
@@ -273,4 +300,92 @@ def auto_validate(days: int = 30) -> Dict[str, Any]:
         "passed": passed,
         "pass_rate": round(passed / validated * 100, 1) if validated > 0 else 0,
         "details": details,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Planned Events — read training plan from Intervals.icu calendar
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def fetch_planned_events(oldest: str, newest: str) -> List[Dict[str, Any]]:
+    """Fetch planned workout events from Intervals.icu calendar.
+
+    Args:
+        oldest: Start date (YYYY-MM-DD)
+        newest: End date (YYYY-MM-DD)
+
+    Returns:
+        List of planned events with normalized fields:
+        - date, name, type (Ride/Run/Swim/Other), category (WORKOUT/NOTE/...)
+        - workout_doc (structured steps if available)
+        - icu_training_load (planned TSS)
+        - description
+    """
+    events = _get(f"/athlete/me/events", oldest=oldest, newest=newest)
+    if not isinstance(events, list):
+        return []
+
+    result = []
+    for e in events:
+        start = e.get("start_date_local", "")
+        result.append({
+            "id": e.get("id"),
+            "date": start[:10] if start else None,
+            "name": e.get("name", ""),
+            "type": e.get("type", ""),         # Ride, Run, Swim, WeightTraining, ...
+            "category": e.get("category", ""),  # WORKOUT, NOTE, RACE, TARGET, ...
+            "description": e.get("description", ""),
+            "planned_tss": e.get("icu_training_load"),
+            "planned_duration_s": e.get("moving_time"),
+            "planned_distance_m": e.get("distance"),
+            "color": e.get("color"),
+            "workout_doc": e.get("workout_doc"),
+        })
+    return result
+
+
+def fetch_week_plan(week_offset: int = 0) -> Dict[str, Any]:
+    """Fetch this week's (or next week's) plan from Intervals.icu.
+
+    Args:
+        week_offset: 0 = this week, 1 = next week, -1 = last week
+
+    Returns:
+        {
+            "week_start": "2026-03-24",
+            "week_end": "2026-03-30",
+            "events": [...],
+            "ride_count": 3,
+            "run_count": 0,
+            "strength_count": 0,
+            "total_planned_tss": 250,
+            "rest_days": ["2026-03-24", "2026-03-26", "2026-03-28"],
+        }
+    """
+    today = date.today()
+    # Monday of the target week
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    sunday = monday + timedelta(days=6)
+
+    events = fetch_planned_events(monday.isoformat(), sunday.isoformat())
+    workouts = [e for e in events if e["category"] == "WORKOUT"]
+
+    occupied_dates = {e["date"] for e in workouts}
+    all_dates = [(monday + timedelta(days=i)).isoformat() for i in range(7)]
+    rest_days = [d for d in all_dates if d not in occupied_dates]
+
+    ride_count = sum(1 for e in workouts if e["type"] == "Ride")
+    run_count = sum(1 for e in workouts if e["type"] == "Run")
+    strength_count = sum(1 for e in workouts if e["type"] in ("WeightTraining", "Strength"))
+    total_tss = sum(e.get("planned_tss") or 0 for e in workouts)
+
+    return {
+        "week_start": monday.isoformat(),
+        "week_end": sunday.isoformat(),
+        "events": workouts,
+        "ride_count": ride_count,
+        "run_count": run_count,
+        "strength_count": strength_count,
+        "total_planned_tss": total_tss,
+        "rest_days": rest_days,
     }
