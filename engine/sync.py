@@ -158,23 +158,34 @@ def process_activity(
     carbs = metrics.estimate_carbs_used(powers, hrs, max_hr, weight_kg) if powers else None
 
     # 6. Store in database
+    # FIT stores UTC — convert to local timezone for date and start_time
+    start_time_local = None
     activity_date = None
     if session.start_time:
         st = session.start_time
         if isinstance(st, datetime):
-            # FIT stores UTC — convert to local timezone for date assignment
             if st.tzinfo is None:
                 st = st.replace(tzinfo=timezone.utc)
-            activity_date = st.astimezone(_LOCAL_TZ).strftime("%Y-%m-%d")
+            local_st = st.astimezone(_LOCAL_TZ)
+            start_time_local = local_st.strftime("%Y-%m-%d %H:%M:%S")
+            activity_date = local_st.strftime("%Y-%m-%d")
         else:
+            start_time_local = str(st)
             activity_date = str(st)[:10]
+
+    # 跑步步频: FIT 存的是单腿 strides/min，需要 ×2 得到总步频 spm
+    sport = str(session.sport or "").lower()
+    is_running = "running" in sport or "run" in sport
+    avg_cadence = session.avg_cadence
+    if is_running and avg_cadence and avg_cadence < 130:
+        avg_cadence = avg_cadence * 2
 
     activity_data = {
         "id": activity_id,
         "sport": str(session.sport) if session.sport else None,
         "sub_sport": str(session.sub_sport) if session.sub_sport else None,
         "name": activity_name,
-        "start_time": str(session.start_time) if session.start_time else None,
+        "start_time": start_time_local,
         "date": activity_date,
         "total_elapsed_s": session.total_elapsed_time,
         "total_timer_s": session.total_timer_time,
@@ -185,7 +196,7 @@ def process_activity(
         "max_power": session.max_power,
         "avg_speed": session.avg_speed,
         "max_speed": session.max_speed,
-        "avg_cadence": session.avg_cadence,
+        "avg_cadence": avg_cadence,
         "max_cadence": session.max_cadence,
         "total_ascent": session.total_ascent,
         "total_descent": session.total_descent,
@@ -206,6 +217,11 @@ def process_activity(
         "drift_method": drift.method if drift else None,
         "drift_pct": drift.drift_pct if drift else None,
         "drift_classification": drift.classification if drift else None,
+        # Running dynamics (FIT stores mm, convert to cm)
+        "avg_stance_time_ms": session.avg_stance_time,
+        "avg_vertical_osc_cm": round(session.avg_vertical_oscillation / 10, 1) if session.avg_vertical_oscillation else None,
+        "avg_step_length_cm": round(session.avg_step_length / 10, 1) if session.avg_step_length else None,
+        "avg_vertical_ratio": round(session.avg_vertical_ratio / 100, 2) if session.avg_vertical_ratio else None,
         "power_zones_json": json.dumps([
             {"zone": z.zone, "seconds": z.seconds, "pct": z.pct,
              "watts_low": z.watts_low, "watts_high": z.watts_high}

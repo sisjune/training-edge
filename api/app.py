@@ -1096,7 +1096,9 @@ def generate_activity_review(conn, activity_id: int) -> dict:
     # 构建活动摘要（给 LLM 的上下文）
     sport_names = {"cycling": "骑行", "running": "跑步", "training": "力量训练"}
     sport_cn = sport_names.get(sport, sport)
+    is_running = "running" in sport
 
+    # 通用字段
     activity_summary = f"""活动名称: {activity.get('name', '未知')}
 运动类型: {sport_cn}
 日期: {activity_date}
@@ -1104,7 +1106,30 @@ def generate_activity_review(conn, activity_id: int) -> dict:
 总时长: {round(activity['total_elapsed_s'] / 60) if activity.get('total_elapsed_s') else '无'}分钟
 运动时间: {round(activity['total_timer_s'] / 60) if activity.get('total_timer_s') else '无'}分钟
 平均心率: {activity.get('avg_hr') or '无'}bpm
-最大心率: {activity.get('max_hr') or '无'}bpm
+最大心率: {activity.get('max_hr') or '无'}bpm"""
+
+    if is_running:
+        # 跑步配速
+        pace_str = "无"
+        if activity.get('avg_speed') and activity['avg_speed'] > 0:
+            pace_total_s = int(1000 / activity['avg_speed'])
+            pace_str = f"{pace_total_s // 60}:{pace_total_s % 60:02d} min/km"
+        activity_summary += f"""
+平均配速: {pace_str}
+平均步频: {activity.get('avg_cadence') or '无'} spm
+VDOT: {round(activity['vdot'], 1) if activity.get('vdot') else '无'}
+触地时间: {round(activity['avg_stance_time_ms']) if activity.get('avg_stance_time_ms') else '无'}ms
+垂直振幅: {round(activity['avg_vertical_osc_cm'], 1) if activity.get('avg_vertical_osc_cm') else '无'}cm
+步幅: {round(activity['avg_step_length_cm']) if activity.get('avg_step_length_cm') else '无'}cm
+爬升: {round(activity['total_ascent']) if activity.get('total_ascent') else '无'}m
+TSS: {round(activity['tss']) if activity.get('tss') else '无'}
+TRIMP: {round(activity['trimp']) if activity.get('trimp') else '无'}
+心率漂移: {f"{round(activity['drift_pct'], 1)}% ({activity.get('drift_classification', '')})" if activity.get('drift_pct') is not None else '无'}
+有氧训练效果: {activity.get('aerobic_te') or '无'}
+无氧训练效果: {activity.get('anaerobic_te') or '无'}
+热量: {activity.get('total_calories') or '无'}kcal"""
+    else:
+        activity_summary += f"""
 平均功率: {activity.get('avg_power') or '无'}W
 最大功率: {activity.get('max_power') or '无'}W
 标准化功率(NP): {round(activity['normalized_power']) if activity.get('normalized_power') else '无'}W
@@ -1164,8 +1189,44 @@ TRIMP: {round(activity['trimp']) if activity.get('trimp') else '无'}
         zone_lines = [f"  {zone_names.get(z['zone'], z['zone'])}: {z.get('pct', 0):.0f}%（{z.get('seconds', 0):.0f}秒）" for z in power_zones]
         zones_context = "\n功率区间分布:\n" + "\n".join(zone_lines)
 
-    # LLM 提示词
-    system_prompt = """你是一位专业的自行车运动训练分析师，负责对骑行活动进行结构化复盘分析。
+    # LLM 提示词（根据运动类型切换）
+    if is_running:
+        system_prompt = """你是一位专业的跑步训练分析师，负责对跑步活动进行结构化复盘分析。
+
+你的分析必须基于数据，客观、简洁、具有训练指导价值。重点关注跑步专有指标：配速、步频、VDOT、触地时间、垂直振幅、心率漂移等。
+
+免责声明：本分析仅用于训练管理参考，不构成医学诊断或医疗建议。如有健康疑虑，请咨询专业医生。
+
+请严格按照以下 JSON 格式输出，不要添加任何额外说明文字：
+
+{
+  "summary": {
+    "overall_label": "一个2-4字的评价标签，如'轻松恢复跑'、'节奏跑'、'长距离慢跑'、'间歇训练'等",
+    "one_line_summary": "一句话总结本次跑步的核心特征和训练价值",
+    "completion_status": "完成度评价：完美执行/基本完成/部分完成/未完成",
+    "fatigue_impact": "对疲劳的影响评价：低/中/高/极高",
+    "plan_impact": "对后续训练计划的影响：无影响/轻微调整/需要调整/需要重新规划"
+  },
+  "key_findings": [
+    "第一个关键发现（最重要的训练信号）",
+    "第二个关键发现",
+    "第三个关键发现"
+  ],
+  "narrative": {
+    "training_type": "识别本次训练的类型和目的（恢复跑、有氧慢跑、节奏跑、间歇跑、长距离等），并说明判断依据",
+    "execution_quality": "评估训练执行质量：配速稳定性、心率控制、步频一致性、触地时间等跑姿指标",
+    "physiological_cost": "分析生理成本：TSS/TRIMP负荷、心率漂移、恢复需求",
+    "capacity_signal": "分析能力信号：VDOT趋势、配速/心率效率、步频步幅平衡、跑步经济性",
+    "abnormal_and_noise": "指出异常数据或干扰因素（如天气、地形、路面、设备问题等）",
+    "next_steps": "基于本次训练结果，对后续1-2天训练的具体建议"
+  },
+  "confidence": {
+    "level": "高/中/低",
+    "reasons": ["影响置信度的因素1", "影响置信度的因素2"]
+  }
+}"""
+    else:
+        system_prompt = """你是一位专业的自行车运动训练分析师，负责对骑行活动进行结构化复盘分析。
 
 你的分析必须基于数据，客观、简洁、具有训练指导价值。
 
@@ -1200,7 +1261,7 @@ TRIMP: {round(activity['trimp']) if activity.get('trimp') else '无'}
   }
 }"""
 
-    user_prompt = f"""请对以下骑行活动进行结构化复盘分析：
+    user_prompt = f"""请对以下{sport_cn}活动进行结构化复盘分析：
 
 {activity_summary}
 {fitness_context}
@@ -1224,7 +1285,7 @@ TRIMP: {round(activity['trimp']) if activity.get('trimp') else '无'}
     review_data = llm_client.extract_json(response_text)
 
     # 补充元数据
-    review_data["analysis_version"] = "ride_review_v1"
+    review_data["analysis_version"] = "run_review_v1" if is_running else "ride_review_v1"
     review_data["generated_at"] = datetime.now().isoformat()
     review_data["review_status"] = "completed"
     review_data["sport_type"] = sport

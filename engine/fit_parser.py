@@ -30,6 +30,10 @@ class Record:
     distance: Optional[float] = None        # cumulative meters
     enhanced_speed: Optional[float] = None  # m/s (higher resolution)
     enhanced_altitude: Optional[float] = None
+    # Running dynamics
+    stance_time: Optional[float] = None             # 触地时间 ms
+    vertical_oscillation: Optional[float] = None     # 垂直振幅 mm
+    step_length: Optional[float] = None              # 步幅 mm
 
 
 @dataclass
@@ -74,6 +78,11 @@ class SessionSummary:
     training_effect: Optional[float] = None
     anaerobic_training_effect: Optional[float] = None
     threshold_power: Optional[int] = None          # FTP stored in device
+    # Running dynamics (session averages)
+    avg_stance_time: Optional[float] = None          # 平均触地时间 ms
+    avg_vertical_oscillation: Optional[float] = None  # 平均垂直振幅 mm
+    avg_step_length: Optional[float] = None           # 平均步幅 mm
+    avg_vertical_ratio: Optional[float] = None        # 垂直步幅比 %
 
 
 @dataclass
@@ -167,6 +176,10 @@ def parse_fit(path: str | Path) -> ParsedActivity:
                 distance=_safe_float(_get_field(message, "distance")),
                 enhanced_speed=_safe_float(_get_field(message, "enhanced_speed")),
                 enhanced_altitude=_safe_float(_get_field(message, "enhanced_altitude")),
+                # Running dynamics
+                stance_time=_safe_float(_get_field(message, "stance_time")),
+                vertical_oscillation=_safe_float(_get_field(message, "vertical_oscillation")),
+                step_length=_safe_float(_get_field(message, "step_length")),
             )
             result.records.append(rec)
 
@@ -213,6 +226,14 @@ def parse_fit(path: str | Path) -> ParsedActivity:
                 _get_field(message, "total_anaerobic_training_effect")
             )
             s.threshold_power = _safe_int(_get_field(message, "threshold_power"))
+            # Running dynamics
+            s.avg_stance_time = _safe_float(_get_field(message, "avg_stance_time"))
+            s.avg_vertical_oscillation = _safe_float(
+                _get_field(message, "avg_vertical_oscillation")
+            )
+            s.avg_step_length = _safe_float(_get_field(message, "avg_step_length"))
+            s.avg_vertical_ratio = _safe_float(
+                _get_field(message, "avg_vertical_ratio"))
 
         elif msg_name == "file_id":
             result.raw_metadata["manufacturer"] = _get_field(message, "manufacturer")

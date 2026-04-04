@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ activity.name or '活动' }} — TrainingEdge{% endblock %}
 
+{% set is_running = activity.sport == 'running' %}
+{% set is_cycling = activity.sport == 'cycling' %}
+
 {% block content %}
 <div class="page-header">
     <a href="/" class="back-link">← 返回面板</a>
     <h1>{{ activity.name or '未命名' }}</h1>
     <div class="subtitle">
         {{ activity.date }}
-        · {% if activity.sport == 'cycling' %}骑行{% elif activity.sport == 'running' %}跑步{% elif activity.sport == 'training' %}力量训练{% else %}{{ activity.sport }}{% endif %}
+        · {% if is_cycling %}骑行{% elif is_running %}跑步{% elif activity.sport == 'training' %}力量训练{% else %}{{ activity.sport }}{% endif %}
         · {{ 'ID %s' % activity.id }}
     </div>
 </div>
@@ -19,12 +22,60 @@
         <div class="stat-row"><span class="stat-label">距离</span><span class="stat-value">{{ '%.1f km' % (activity.distance_m / 1000) if activity.distance_m else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">总时长</span><span class="stat-value">{{ '%d min' % (activity.total_elapsed_s / 60) if activity.total_elapsed_s else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">运动时间</span><span class="stat-value">{{ '%d min' % (activity.total_timer_s / 60) if activity.total_timer_s else '—' }}</span></div>
+        {% if is_running and activity.avg_speed %}
+        {% set pace_s = (1000 / activity.avg_speed) | int %}
+        <div class="stat-row">
+            <span class="stat-label">平均配速</span>
+            <span class="stat-value" style="color:var(--blue); font-size:17px; font-weight:700;">{{ '%d:%02d' % (pace_s // 60, pace_s % 60) }} min/km</span>
+        </div>
+        {% if activity.max_speed %}
+        {% set best_pace_s = (1000 / activity.max_speed) | int %}
+        <div class="stat-row"><span class="stat-label">最快配速</span><span class="stat-value">{{ '%d:%02d' % (best_pace_s // 60, best_pace_s % 60) }} min/km</span></div>
+        {% endif %}
+        {% else %}
         <div class="stat-row"><span class="stat-label">均速</span><span class="stat-value">{{ '%.1f km/h' % (activity.avg_speed * 3.6) if activity.avg_speed else '—' }}</span></div>
+        {% endif %}
         <div class="stat-row"><span class="stat-label">爬升</span><span class="stat-value">{{ '%.0f m' % activity.total_ascent if activity.total_ascent else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">热量</span><span class="stat-value">{{ '%s kcal' % activity.total_calories if activity.total_calories else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">温度</span><span class="stat-value">{{ '%.0f°C' % activity.avg_temperature if activity.avg_temperature else '—' }}</span></div>
+        <div class="stat-row"><span class="stat-label">开始时间</span><span class="stat-value">{{ activity.start_time or '—' }}</span></div>
     </div>
 
+    {% if is_running %}
+    <!-- ── Running-specific Card ── -->
+    <div class="card">
+        <div class="card-label">跑步表现</div>
+        <div class="stat-row">
+            <span class="stat-label">平均步频</span>
+            <span class="stat-value" style="color:var(--blue); font-size:17px; font-weight:700;">{{ '%s spm' % activity.avg_cadence if activity.avg_cadence else '—' }}</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">VDOT</span>
+            <span class="stat-value" style="color:var(--orange); font-size:17px; font-weight:700;">{{ '%.1f' % activity.vdot if activity.vdot else '—' }}</span>
+        </div>
+        {% if activity.avg_stance_time_ms %}
+        <div class="stat-row"><span class="stat-label">触地时间</span><span class="stat-value">{{ '%.0f ms' % activity.avg_stance_time_ms }}</span></div>
+        {% endif %}
+        {% if activity.avg_vertical_osc_cm %}
+        <div class="stat-row"><span class="stat-label">垂直振幅</span><span class="stat-value">{{ '%.1f cm' % activity.avg_vertical_osc_cm }}</span></div>
+        {% endif %}
+        {% if activity.avg_step_length_cm %}
+        <div class="stat-row"><span class="stat-label">步幅</span><span class="stat-value">{{ '%.0f cm' % activity.avg_step_length_cm }}</span></div>
+        {% endif %}
+        {% if activity.avg_vertical_ratio %}
+        <div class="stat-row"><span class="stat-label">垂直步幅比</span><span class="stat-value">{{ '%.1f%%' % activity.avg_vertical_ratio }}</span></div>
+        {% endif %}
+        <div class="stat-row">
+            <span class="stat-label">TSS</span>
+            <span class="stat-value">{{ '%.0f' % activity.tss if activity.tss else '—' }}</span>
+        </div>
+        <div class="stat-row"><span class="stat-label">TRIMP</span><span class="stat-value">{{ '%.0f' % activity.trimp if activity.trimp else '—' }}</span></div>
+        {% if activity.avg_power %}
+        <div class="stat-row"><span class="stat-label">平均功率</span><span class="stat-value">{{ '%s W' % activity.avg_power }}</span></div>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- ── Cycling Power Card ── -->
     <div class="card">
         <div class="card-label">功率与负荷</div>
         <div class="stat-row"><span class="stat-label">平均功率</span><span class="stat-value">{{ '%s W' % activity.avg_power if activity.avg_power else '—' }}</span></div>
@@ -43,12 +94,15 @@
         <div class="stat-row"><span class="stat-label">eFTP (估算)</span><span class="stat-value">{{ '%.0f W' % activity.estimated_ftp if activity.estimated_ftp else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">W'</span><span class="stat-value">{{ '%.0f J' % activity.w_prime if activity.w_prime else '—' }}</span></div>
     </div>
+    {% endif %}
 
     <div class="card">
         <div class="card-label">心率与身体</div>
         <div class="stat-row"><span class="stat-label">平均心率</span><span class="stat-value">{{ '%s bpm' % activity.avg_hr if activity.avg_hr else '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">最大心率</span><span class="stat-value">{{ '%s bpm' % activity.max_hr if activity.max_hr else '—' }}</span></div>
+        {% if not is_running %}
         <div class="stat-row"><span class="stat-label">平均踏频</span><span class="stat-value">{{ '%s rpm' % activity.avg_cadence if activity.avg_cadence else '—' }}</span></div>
+        {% endif %}
         <div class="stat-row"><span class="stat-label">有氧效果</span><span class="stat-value">{{ activity.aerobic_te or '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">无氧效果</span><span class="stat-value">{{ activity.anaerobic_te or '—' }}</span></div>
         <div class="stat-row"><span class="stat-label">TRIMP</span><span class="stat-value">{{ '%.0f' % activity.trimp if activity.trimp else '—' }}</span></div>
@@ -77,7 +131,7 @@
 
 <!-- ── Zones ── -->
 <div class="grid">
-    {% if power_zones %}
+    {% if power_zones and not is_running %}
     <div class="card">
         <div class="card-label">功率区间</div>
         <div class="chart-wrap">
@@ -96,8 +150,8 @@
     {% endif %}
 </div>
 
-<!-- ── PDC ── -->
-{% if pdc %}
+<!-- ── PDC (cycling only) ── -->
+{% if pdc and not is_running %}
 <div class="card section">
     <div class="card-label">功率持续曲线 · 本次活动</div>
     <div class="chart-wrap">
@@ -106,24 +160,39 @@
 </div>
 {% endif %}
 
-<!-- ── Laps ── -->
+<!-- ── Laps / Splits ── -->
 {% if laps %}
 <div class="card section">
     <div class="card-label">分段数据</div>
     <table>
         <thead>
+            {% if is_running %}
+            <tr><th>#</th><th>时间</th><th>距离</th><th>配速</th><th>心率</th><th>步频</th></tr>
+            {% else %}
             <tr><th>#</th><th>时间</th><th>距离</th><th>心率</th><th>功率</th><th>速度</th><th>踏频</th></tr>
+            {% endif %}
         </thead>
         <tbody>
             {% for lap in laps %}
             <tr>
                 <td>{{ loop.index }}</td>
                 <td>{{ '%.0f s' % lap.total_elapsed_time if lap.total_elapsed_time else '—' }}</td>
-                <td>{{ '%.1f km' % (lap.total_distance / 1000) if lap.total_distance else '—' }}</td>
+                <td>{{ '%.2f km' % (lap.total_distance / 1000) if lap.total_distance else '—' }}</td>
+                {% if is_running %}
+                {% if lap.avg_speed and lap.avg_speed > 0 %}
+                {% set lp_s = (1000 / lap.avg_speed) | int %}
+                <td>{{ '%d:%02d' % (lp_s // 60, lp_s % 60) }}</td>
+                {% else %}
+                <td>—</td>
+                {% endif %}
+                <td>{{ lap.avg_heart_rate or '—' }}</td>
+                <td>{{ '%s' % (lap.avg_cadence * 2 if lap.avg_cadence and lap.avg_cadence < 130 else lap.avg_cadence) if lap.avg_cadence else '—' }}</td>
+                {% else %}
                 <td>{{ lap.avg_heart_rate or '—' }}</td>
                 <td>{{ '%s W' % lap.avg_power if lap.avg_power else '—' }}</td>
                 <td>{{ '%.1f km/h' % (lap.avg_speed * 3.6) if lap.avg_speed else '—' }}</td>
                 <td>{{ lap.avg_cadence or '—' }}</td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
@@ -157,9 +226,9 @@
 </div>
 {% endif %}
 
-<!-- ── AI 骑行复盘 ── -->
+<!-- ── AI 复盘 ── -->
 <div class="card section" id="aiReviewCard">
-    <div class="card-label">AI 骑行复盘</div>
+    <div class="card-label">AI {{ '跑步' if is_running else '骑行' if is_cycling else '训练' }}复盘</div>
     {% if ai_review %}
     <div style="font-size:14px; color:var(--text-primary); line-height:1.8;">
         <div style="margin-bottom:8px;"><strong>总评：</strong>{{ ai_review.summary.one_line_summary }}</div>
@@ -230,6 +299,7 @@ const tooltipStyle = {
 };
 
 const appleColors = ['#5e5ce6', '#0a84ff', '#30d158', '#ff9f0a', '#ff453a', '#bf5af2', '#ff375f'];
+const isRunning = {{ 'true' if is_running else 'false' }};
 
 // ── Timeline Chart ──
 const records = {{ records | tojson }};
@@ -238,39 +308,82 @@ if (records && records.length > 0) {
     const sampled = records.filter((_, i) => i % step === 0);
 
     const datasets = [];
-    if (sampled.some(r => r.power > 0)) {
-        datasets.push({
-            label: '功率 (W)',
-            data: sampled.map(r => r.power || 0),
-            borderColor: '#bf5af2',
-            backgroundColor: ctx => {
-                const chart = ctx.chart;
-                const { ctx: c, chartArea } = chart;
-                if (!chartArea) return 'rgba(191,90,242,0.06)';
-                const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                g.addColorStop(0, 'rgba(191,90,242,0.15)');
-                g.addColorStop(1, 'rgba(191,90,242,0.0)');
-                return g;
-            },
-            fill: true, pointRadius: 0, borderWidth: 1.2, yAxisID: 'y',
-        });
+
+    if (isRunning) {
+        // 跑步: 配速 + 心率 + 步频
+        if (sampled.some(r => r.speed > 0)) {
+            datasets.push({
+                label: '配速 (min/km)',
+                data: sampled.map(r => r.speed > 0 ? (1000 / r.speed / 60) : null),
+                borderColor: '#0a84ff',
+                fill: false, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y',
+            });
+        }
+        if (sampled.some(r => r.heart_rate > 0)) {
+            datasets.push({
+                label: '心率 (bpm)',
+                data: sampled.map(r => r.heart_rate || 0),
+                borderColor: '#ff453a',
+                fill: false, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1',
+            });
+        }
+        if (sampled.some(r => r.cadence > 0)) {
+            datasets.push({
+                label: '步频 (spm)',
+                data: sampled.map(r => {
+                    let c = r.cadence || 0;
+                    return c > 0 && c < 130 ? c * 2 : c;
+                }),
+                borderColor: '#30d158',
+                fill: false, pointRadius: 0, borderWidth: 1, yAxisID: 'y', hidden: true,
+            });
+        }
+    } else {
+        // 骑行: 功率 + 心率 + 速度
+        if (sampled.some(r => r.power > 0)) {
+            datasets.push({
+                label: '功率 (W)',
+                data: sampled.map(r => r.power || 0),
+                borderColor: '#bf5af2',
+                backgroundColor: ctx => {
+                    const chart = ctx.chart;
+                    const { ctx: c, chartArea } = chart;
+                    if (!chartArea) return 'rgba(191,90,242,0.06)';
+                    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    g.addColorStop(0, 'rgba(191,90,242,0.15)');
+                    g.addColorStop(1, 'rgba(191,90,242,0.0)');
+                    return g;
+                },
+                fill: true, pointRadius: 0, borderWidth: 1.2, yAxisID: 'y',
+            });
+        }
+        if (sampled.some(r => r.heart_rate > 0)) {
+            datasets.push({
+                label: '心率 (bpm)',
+                data: sampled.map(r => r.heart_rate || 0),
+                borderColor: '#ff453a',
+                fill: false, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1',
+            });
+        }
+        if (sampled.some(r => r.speed > 0)) {
+            datasets.push({
+                label: '速度 (km/h)',
+                data: sampled.map(r => (r.speed || 0) * 3.6),
+                borderColor: '#64d2ff',
+                fill: false, pointRadius: 0, borderWidth: 1, yAxisID: 'y', hidden: true,
+            });
+        }
     }
-    if (sampled.some(r => r.heart_rate > 0)) {
-        datasets.push({
-            label: '心率 (bpm)',
-            data: sampled.map(r => r.heart_rate || 0),
-            borderColor: '#ff453a',
-            fill: false, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1',
-        });
-    }
-    if (sampled.some(r => r.speed > 0)) {
-        datasets.push({
-            label: '速度 (km/h)',
-            data: sampled.map(r => (r.speed || 0) * 3.6),
-            borderColor: '#64d2ff',
-            fill: false, pointRadius: 0, borderWidth: 1, yAxisID: 'y', hidden: true,
-        });
-    }
+
+    const yAxisConfig = isRunning ? {
+        position: 'left',
+        reverse: true,  // 配速越低越快，反转Y轴
+        ticks: { font: { size: 10 }, callback: function(v) { return Math.floor(v) + ':' + String(Math.round((v % 1) * 60)).padStart(2, '0'); } },
+        grid: { color: gridColor }, border: { display: false },
+        title: { display: true, text: 'min/km', font: { size: 10 } },
+    } : {
+        position: 'left', ticks: { font: { size: 10 } }, grid: { color: gridColor }, border: { display: false },
+    };
 
     new Chart(document.getElementById('timelineChart'), {
         type: 'line',
@@ -283,7 +396,7 @@ if (records && records.length > 0) {
             interaction: { intersect: false, mode: 'index' },
             scales: {
                 x: { ticks: { maxTicksLimit: 15, font: { size: 10, weight: '500' } }, grid: { color: gridColor }, border: { display: false } },
-                y: { position: 'left', ticks: { font: { size: 10 } }, grid: { color: gridColor }, border: { display: false } },
+                y: yAxisConfig,
                 y1: { position: 'right', ticks: { color: '#ff453a', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
             },
             plugins: {
@@ -294,7 +407,8 @@ if (records && records.length > 0) {
     });
 }
 
-// ── Power Zones ──
+// ── Power Zones (cycling only) ──
+{% if not is_running %}
 const pzData = {{ power_zones | tojson }};
 if (pzData && pzData.length > 0) {
     const zoneNames = { z1: 'Z1 恢复', z2: 'Z2 耐力', z3: 'Z3 节奏', z4: 'Z4 阈值', z5: 'Z5 VO₂max', z6: 'Z6 无氧', z7: 'Z7 神经' };
@@ -322,6 +436,7 @@ if (pzData && pzData.length > 0) {
         }
     });
 }
+{% endif %}
 
 // ── HR Zones ──
 const hzData = {{ hr_zones | tojson }};
@@ -352,7 +467,8 @@ if (hzData && hzData.length > 0) {
     });
 }
 
-// ── PDC ──
+// ── PDC (cycling only) ──
+{% if not is_running %}
 const pdcData = {{ pdc | tojson }};
 if (pdcData && Object.keys(pdcData).length > 0) {
     const durationLabels = {
@@ -395,6 +511,7 @@ if (pdcData && Object.keys(pdcData).length > 0) {
         }
     });
 }
+{% endif %}
 
 // ── AI Review ──
 function toggleFullReview() {
@@ -404,18 +521,19 @@ function toggleFullReview() {
 
 async function regenerateReview(activityId) {
     const card = document.getElementById('aiReviewCard');
-    card.innerHTML = '<div class="card-label">AI 骑行复盘</div><div style="text-align:center; padding:40px;"><div style="font-size:24px; margin-bottom:8px;">🤖</div><div style="color:var(--text-secondary);">正在生成 AI 复盘...</div></div>';
+    const sportLabel = isRunning ? '跑步' : '骑行';
+    card.innerHTML = `<div class="card-label">AI ${sportLabel}复盘</div><div style="text-align:center; padding:40px;"><div style="font-size:24px; margin-bottom:8px;">🤖</div><div style="color:var(--text-secondary);">正在生成 AI 复盘...</div></div>`;
     try {
         const resp = await fetch(`/api/activities/${activityId}/ai-review/regenerate`, {method: 'POST'});
         const result = await resp.json();
         if (result.ok) {
             setTimeout(() => window.location.reload(), 1000);
         } else {
-            card.innerHTML = '<div class="card-label">AI 骑行复盘</div>' +
+            card.innerHTML = `<div class="card-label">AI ${sportLabel}复盘</div>` +
                 `<div style="color:var(--red); padding:20px;">生成失败: ${result.detail || '未知错误'}</div>`;
         }
     } catch(e) {
-        card.innerHTML = '<div class="card-label">AI 骑行复盘</div>' +
+        card.innerHTML = `<div class="card-label">AI ${sportLabel}复盘</div>` +
             `<div style="color:var(--red); padding:20px;">请求失败: ${e.message}</div>`;
     }
 }

@@ -86,6 +86,12 @@ def init_db(db_path: Path = DB_PATH):
             drift_pct           REAL,
             drift_classification TEXT,
 
+            -- Running dynamics (跑步动态)
+            avg_stance_time_ms      REAL,    -- 触地时间 ms
+            avg_vertical_osc_cm     REAL,    -- 垂直振幅 cm
+            avg_step_length_cm      REAL,    -- 步幅 cm
+            avg_vertical_ratio      REAL,    -- 垂直步幅比 %
+
             -- JSON blobs for complex data
             power_zones_json    TEXT,                -- JSON: zone distribution
             hr_zones_json       TEXT,
@@ -296,6 +302,24 @@ def init_db(db_path: Path = DB_PATH):
         CREATE INDEX IF NOT EXISTS idx_planned_workouts_plan ON planned_workouts(plan_id);
         """)
 
+        # 增量迁移：为已有数据库添加跑步动态列
+        _migrate_running_dynamics(conn)
+
+
+def _migrate_running_dynamics(conn: sqlite3.Connection):
+    """Add running dynamics columns to existing activities table."""
+    new_cols = [
+        ("avg_stance_time_ms", "REAL"),
+        ("avg_vertical_osc_cm", "REAL"),
+        ("avg_step_length_cm", "REAL"),
+        ("avg_vertical_ratio", "REAL"),
+    ]
+    for col_name, col_type in new_cols:
+        try:
+            conn.execute(f"ALTER TABLE activities ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            pass  # 列已存在
+
 
 # ---------------------------------------------------------------------------
 # Activity CRUD
@@ -313,6 +337,8 @@ def upsert_activity(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
         "normalized_power", "intensity_factor", "tss", "xpower",
         "estimated_ftp", "w_prime", "carbs_used_g", "trimp", "vdot",
         "drift_method", "drift_pct", "drift_classification",
+        "avg_stance_time_ms", "avg_vertical_osc_cm",
+        "avg_step_length_cm", "avg_vertical_ratio",
         "power_zones_json", "hr_zones_json", "pdc_json", "laps_json",
         "intervals_tss", "intervals_np", "intervals_ctl", "intervals_atl",
         "intervals_if", "validation_json", "fit_file_path",
