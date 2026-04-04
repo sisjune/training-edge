@@ -354,17 +354,17 @@ function toggleTrendDetail() {
 </div>
 {% endif %}
 
-<!-- ── Trend Charts ── -->
-<div class="card section" style="margin-top:24px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-        <div class="card-label" style="margin-bottom:0;">体重 · 体脂 · 骨骼肌 趋势</div>
-        <div class="range-btns" data-chart="weight">
+<!-- ── Trend Charts (低频，默认折叠) ── -->
+<details class="card section" style="margin-top:24px; cursor:pointer;">
+    <summary style="display:flex; align-items:center; justify-content:space-between; list-style:none; padding:4px 0;">
+        <div class="card-label" style="margin-bottom:0;">体重 · 体脂 · 骨骼肌 趋势 <span style="font-size:11px; font-weight:400; color:var(--text-tertiary); margin-left:6px;">点击展开</span></div>
+        <div class="range-btns" data-chart="weight" onclick="event.stopPropagation();">
             <button class="range-btn" data-days="7">7天</button>
             <button class="range-btn" data-days="30">30天</button>
             <button class="range-btn active" data-days="90">90天</button>
         </div>
-    </div>
-    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:8px; padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px;">
+    </summary>
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:8px; padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:8px; margin-top:12px;">
         {% if body_trend and body_trend.composition_summary %}
         > {{ body_trend.composition_summary }}
         {% else %}
@@ -374,7 +374,7 @@ function toggleTrendDetail() {
     <div class="chart-wrap">
         <canvas id="weightChart"></canvas>
     </div>
-</div>
+</details>
 
 <div class="card section">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
