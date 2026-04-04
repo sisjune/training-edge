@@ -104,6 +104,11 @@ def process_activity(
     activity_id = int(activity_id)
     activity_name = garmin_activity.get("activityName", "Untitled")
 
+    # 0. Extract Garmin native metrics from API response (not FIT)
+    garmin_load = garmin_activity.get("activityTrainingLoad")  # EPOC-based, 全运动类型
+    garmin_tss = garmin_activity.get("trainingStressScore")     # 仅骑行有功率
+    garmin_vo2max = garmin_activity.get("vO2MaxValue")
+
     # 1. Download FIT
     fit_path = download_fit(api, activity_id)
 
@@ -217,6 +222,10 @@ def process_activity(
         "drift_method": drift.method if drift else None,
         "drift_pct": drift.drift_pct if drift else None,
         "drift_classification": drift.classification if drift else None,
+        # Garmin native metrics (from API, not FIT)
+        "garmin_load": round(garmin_load, 1) if garmin_load else None,
+        "garmin_tss": round(garmin_tss, 1) if garmin_tss else None,
+        "garmin_vo2max": round(garmin_vo2max, 1) if garmin_vo2max else None,
         # Running dynamics (FIT stores mm, convert to cm)
         "avg_stance_time_ms": session.avg_stance_time,
         "avg_vertical_osc_cm": round(session.avg_vertical_oscillation / 10, 1) if session.avg_vertical_oscillation else None,
@@ -315,7 +324,10 @@ def sync_recent(
                 api, act, ftp=ftp, max_hr=max_hr, resting_hr=resting_hr
             )
             results.append(result)
-            print(f"  ✓ {result.get('name')} ({result.get('date')}) — TSS: {result.get('tss')}, NP: {result.get('normalized_power')}")
+            gl = result.get('garmin_load')
+            tss = result.get('tss')
+            load_str = f"GarminLoad: {gl}" if gl else f"TSS: {tss}"
+            print(f"  ✓ {result.get('name')} ({result.get('date')}) — {load_str}, NP: {result.get('normalized_power')}")
         except Exception as e:
             act_id = act.get("activityId") or act.get("id")
             print(f"  ✗ Activity {act_id}: {e}")
@@ -454,28 +466,41 @@ def sync_garmin_wellness(days: int = 14) -> Dict[str, Any]:
 
 
 def _update_fitness_history(ftp: Optional[float] = None):
-    """Recompute CTL/ATL/TSB from all stored activities."""
+    """Recompute CTL/ATL/TSB from all stored activities.
+
+    负荷源优先级:
+      1. garmin_load (Garmin Training Load, EPOC-based) — 全运动类型统一口径
+      2. tss (自算 TSS) — 回退方案
+    """
     with database.get_db() as conn:
         # Get initial CTL/ATL from settings (seeded from intervals.icu)
         initial_ctl = float(database.get_setting(conn, "initial_ctl") or "0")
         initial_atl = float(database.get_setting(conn, "initial_atl") or "0")
 
-        # Get all activities with TSS
+        # 优先用 garmin_load，回退到 tss
         rows = conn.execute(
-            "SELECT date, tss, sport FROM activities WHERE tss IS NOT NULL ORDER BY date"
+            """SELECT date, garmin_load, tss, sport FROM activities
+               WHERE garmin_load IS NOT NULL OR tss IS NOT NULL
+               ORDER BY date"""
         ).fetchall()
 
         if not rows:
             return
 
-        daily_loads = [
-            metrics.DailyLoad(
-                day=date.fromisoformat(row["date"]),
-                tss=row["tss"],
-                sport=row["sport"] or "cycling",
-            )
-            for row in rows
-        ]
+        daily_loads = []
+        for row in rows:
+            load = row["garmin_load"] if row["garmin_load"] else row["tss"]
+            if load and load > 0:
+                daily_loads.append(
+                    metrics.DailyLoad(
+                        day=date.fromisoformat(row["date"]),
+                        tss=load,
+                        sport=row["sport"] or "cycling",
+                    )
+                )
+
+        if not daily_loads:
+            return
 
         history = metrics.compute_fitness_history(
             daily_loads,
@@ -484,7 +509,7 @@ def _update_fitness_history(ftp: Optional[float] = None):
         )
 
         for state in history:
-            daily_tss = sum(
+            daily_load = sum(
                 dl.tss for dl in daily_loads if dl.day == state.day
             )
             database.upsert_fitness(conn, {
@@ -493,5 +518,5 @@ def _update_fitness_history(ftp: Optional[float] = None):
                 "atl": state.atl,
                 "tsb": state.tsb,
                 "ramp_rate": state.ramp_rate,
-                "daily_tss": daily_tss,
+                "daily_tss": daily_load,
             })

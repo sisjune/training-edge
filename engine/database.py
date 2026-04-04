@@ -86,6 +86,11 @@ def init_db(db_path: Path = DB_PATH):
             drift_pct           REAL,
             drift_classification TEXT,
 
+            -- Garmin native metrics (来自 Garmin Connect API，非 FIT 自算)
+            garmin_load             REAL,    -- Garmin Training Load (EPOC-based, 全运动类型)
+            garmin_tss              REAL,    -- Garmin TSS (仅骑行有功率时)
+            garmin_vo2max           REAL,    -- Garmin VO2max
+
             -- Running dynamics (跑步动态)
             avg_stance_time_ms      REAL,    -- 触地时间 ms
             avg_vertical_osc_cm     REAL,    -- 垂直振幅 cm
@@ -307,8 +312,11 @@ def init_db(db_path: Path = DB_PATH):
 
 
 def _migrate_running_dynamics(conn: sqlite3.Connection):
-    """Add running dynamics columns to existing activities table."""
+    """Add running dynamics + Garmin native columns to existing activities table."""
     new_cols = [
+        ("garmin_load", "REAL"),
+        ("garmin_tss", "REAL"),
+        ("garmin_vo2max", "REAL"),
         ("avg_stance_time_ms", "REAL"),
         ("avg_vertical_osc_cm", "REAL"),
         ("avg_step_length_cm", "REAL"),
@@ -337,6 +345,7 @@ def upsert_activity(conn: sqlite3.Connection, data: Dict[str, Any]) -> int:
         "normalized_power", "intensity_factor", "tss", "xpower",
         "estimated_ftp", "w_prime", "carbs_used_g", "trimp", "vdot",
         "drift_method", "drift_pct", "drift_classification",
+        "garmin_load", "garmin_tss", "garmin_vo2max",
         "avg_stance_time_ms", "avg_vertical_osc_cm",
         "avg_step_length_cm", "avg_vertical_ratio",
         "power_zones_json", "hr_zones_json", "pdc_json", "laps_json",
