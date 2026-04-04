@@ -1,6 +1,6 @@
 [project]
 name = "training-edge"
-version = "0.6.0"
+version = "0.7.0"
 description = "Self-hosted sports analytics — FIT parsing, training metrics, and AI-ready API"
 requires-python = ">=3.10"
 dependencies = [
