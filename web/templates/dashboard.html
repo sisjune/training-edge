@@ -276,7 +276,7 @@
 {# ═══ 模块 4: 训练负荷趋势 ═══ #}
 <div class="card section">
     <div style="font-size:13px; color:var(--text-secondary); padding:8px 12px; margin-bottom:8px; background:rgba(255,255,255,0.03); border-radius:8px; line-height:1.6;">
-        {% if decision_summary is defined and decision_summary %}{{ decision_summary }}{% else %}&gt; 训练负荷趋势（hover 查看详情）{% endif %}
+        {% if decision_summary is defined and decision_summary is mapping %}{{ decision_summary.week_action or decision_summary.today_action or '训练负荷趋势（hover 查看详情）' }}{% elif decision_summary is defined and decision_summary %}{{ decision_summary }}{% else %}训练负荷趋势（hover 查看详情）{% endif %}
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <div class="card-label" style="margin:0;">训练负荷趋势</div>
