@@ -37,7 +37,7 @@ from engine.readiness import (
 app = FastAPI(
     title="TrainingEdge",
     description="自建运动数据分析平台 — FIT 解析 + 训练指标计算",
-    version="0.1.0",
+    version="0.7.0",
 )
 
 
