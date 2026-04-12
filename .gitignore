@@ -8,6 +8,15 @@ build/
 
 # Environment
 .env
+.env.*
+
+# Secrets / keys
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
 
 # Local state (DB, FIT files, logs)
 state/*.db
