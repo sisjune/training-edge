@@ -6,18 +6,23 @@
     <title>{% block title %}TrainingEdge{% endblock %}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
         :root {
+            /* ── Surfaces ── */
             --bg: #000000;
-            --bg-elevated: rgba(28, 28, 30, 0.72);
-            --bg-secondary: rgba(44, 44, 46, 0.65);
-            --bg-tertiary: rgba(58, 58, 60, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-border-hover: rgba(255, 255, 255, 0.14);
+            --bg-elevated: rgba(22, 22, 24, 0.82);
+            --bg-secondary: rgba(38, 38, 40, 0.7);
+            --bg-tertiary: rgba(54, 54, 56, 0.5);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-border-hover: rgba(255, 255, 255, 0.12);
+
+            /* ── Text ── */
             --text-primary: #f5f5f7;
-            --text-secondary: rgba(245, 245, 247, 0.6);
-            --text-tertiary: rgba(245, 245, 247, 0.35);
+            --text-secondary: rgba(245, 245, 247, 0.55);
+            --text-tertiary: rgba(245, 245, 247, 0.3);
+
+            /* ── Accent (Apple HIG Dark) ── */
             --blue: #0a84ff;
             --green: #30d158;
             --orange: #ff9f0a;
@@ -27,9 +32,17 @@
             --pink: #ff375f;
             --indigo: #5e5ce6;
             --yellow: #ffd60a;
-            --separator: rgba(255, 255, 255, 0.06);
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.3);
+
+            /* ── Structure ── */
+            --separator: rgba(255, 255, 255, 0.05);
+            --shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+            --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.35);
+            --radius: 18px;
+            --radius-sm: 12px;
+
+            /* ── Motion ── */
+            --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,124 +59,195 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 24px 60px;
+            padding: 0 28px 80px;
         }
 
-        /* ── Navigation ── */
+        /* ═══════════════════════════════════════════
+           Navigation — frosted glass with active state
+           ═══════════════════════════════════════════ */
         nav {
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: saturate(200%) blur(24px);
+            -webkit-backdrop-filter: saturate(200%) blur(24px);
+            background: rgba(0, 0, 0, 0.65);
             border-bottom: 0.5px solid var(--separator);
-            padding: 0 24px;
+            padding: 0 28px;
             display: flex;
             align-items: center;
-            height: 52px;
-            gap: 32px;
+            height: 56px;
+            gap: 8px;
         }
         nav .logo {
-            font-size: 17px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             color: var(--text-primary);
             text-decoration: none;
-            letter-spacing: -0.2px;
+            letter-spacing: -0.3px;
+            margin-right: 24px;
         }
         nav .logo span { color: var(--blue); }
-        nav a {
-            color: var(--text-secondary);
+        nav a:not(.logo) {
+            color: var(--text-tertiary);
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
-            transition: color 0.2s;
+            padding: 6px 14px;
+            border-radius: 8px;
+            transition: all 0.2s var(--ease);
+            position: relative;
         }
-        nav a:hover { color: var(--text-primary); }
+        nav a:not(.logo):hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.06);
+        }
+        nav a:not(.logo).active {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
 
-        /* ── Page Header ── */
+        /* ═══════════════════════════════════════════
+           Page Header — tighter, bolder
+           ═══════════════════════════════════════════ */
         .page-header {
-            padding: 40px 0 12px;
+            padding: 36px 0 8px;
         }
         .page-header h1 {
-            font-size: 34px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.8px;
             color: var(--text-primary);
+            line-height: 1.1;
         }
         .page-header .subtitle {
-            font-size: 15px;
-            color: var(--text-secondary);
-            margin-top: 4px;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+            font-weight: 400;
         }
 
-        /* ── Grid Layout ── */
+        /* ═══════════════════════════════════════════
+           Grid Layout — refined gaps
+           ═══════════════════════════════════════════ */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 16px;
-            margin: 16px 0;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 14px;
+            margin: 14px 0;
         }
         .grid-3 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin: 16px 0;
+            gap: 14px;
+            margin: 14px 0;
+        }
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin: 14px 0;
         }
 
-        /* ── Glass Card ── */
+        /* ═══════════════════════════════════════════
+           Glass Card — subtle glow on hover
+           ═══════════════════════════════════════════ */
         .card {
             background: var(--bg-elevated);
-            backdrop-filter: blur(40px);
-            -webkit-backdrop-filter: blur(40px);
+            backdrop-filter: blur(48px) saturate(150%);
+            -webkit-backdrop-filter: blur(48px) saturate(150%);
             border: 0.5px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            border-radius: var(--radius);
+            padding: 22px;
+            transition: all 0.35s var(--ease);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.08) 30%,
+                rgba(255, 255, 255, 0.12) 50%,
+                rgba(255, 255, 255, 0.08) 70%,
+                transparent 100%
+            );
+            opacity: 0;
+            transition: opacity 0.35s var(--ease);
         }
         .card:hover {
             border-color: var(--glass-border-hover);
             box-shadow: var(--shadow-sm);
+            transform: translateY(-1px);
+        }
+        .card:hover::before {
+            opacity: 1;
         }
         .card-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
             margin-bottom: 14px;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
         }
 
-        /* ── Big Number (Hero Metric) ── */
+        /* ═══════════════════════════════════════════
+           Hero Metric — gradient accent numbers
+           ═══════════════════════════════════════════ */
         .metric {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
         }
         .metric-value {
-            font-size: 42px;
-            font-weight: 700;
-            letter-spacing: -1.5px;
+            font-size: 44px;
+            font-weight: 800;
+            letter-spacing: -2px;
             line-height: 1;
             font-variant-numeric: tabular-nums;
         }
         .metric-label {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
-            color: var(--text-secondary);
+            color: var(--text-tertiary);
+            letter-spacing: 0.2px;
         }
         .metric-sm .metric-value {
             font-size: 28px;
             letter-spacing: -0.8px;
         }
 
-        /* ── Stat Rows ── */
+        /* ── Metric accent colors ── */
+        .metric-blue .metric-value { color: var(--blue); }
+        .metric-green .metric-value { color: var(--green); }
+        .metric-orange .metric-value { color: var(--orange); }
+        .metric-red .metric-value { color: var(--red); }
+        .metric-purple .metric-value { color: var(--purple); }
+        .metric-teal .metric-value { color: var(--teal); }
+
+        /* ── Metric with unit suffix ── */
+        .metric-unit {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            margin-left: 4px;
+            letter-spacing: 0;
+        }
+
+        /* ═══════════════════════════════════════════
+           Stat Rows — cleaner separators
+           ═══════════════════════════════════════════ */
         .stat-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
+            padding: 11px 0;
             border-bottom: 0.5px solid var(--separator);
-            font-size: 15px;
+            font-size: 14px;
         }
         .stat-row:last-child { border-bottom: none; }
         .stat-label {
@@ -171,59 +255,155 @@
             font-weight: 400;
         }
         .stat-value {
-            font-weight: 500;
+            font-weight: 600;
             font-variant-numeric: tabular-nums;
             color: var(--text-primary);
         }
 
-        /* ── Table ── */
+        /* ═══════════════════════════════════════════
+           Table — refined with row highlight
+           ═══════════════════════════════════════════ */
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13px;
         }
         th {
             text-align: left;
             padding: 10px 14px;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
             color: var(--text-tertiary);
-            letter-spacing: 0.3px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
-            border-bottom: 0.5px solid var(--separator);
+            border-bottom: 0.5px solid rgba(255,255,255,0.08);
         }
         td {
             padding: 12px 14px;
             border-bottom: 0.5px solid var(--separator);
             color: var(--text-primary);
         }
-        tr { transition: background 0.15s; }
-        tr:hover td { background: rgba(255,255,255,0.03); }
+        tr {
+            transition: background 0.2s var(--ease);
+        }
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
         td a {
             color: var(--blue);
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
         }
-        td a:hover { text-decoration: underline; }
+        td a:hover {
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
 
-        /* ── Badge / Pill ── */
+        /* ═══════════════════════════════════════════
+           Badges / Pills — more refined
+           ═══════════════════════════════════════════ */
         .pill {
             display: inline-flex;
             align-items: center;
             padding: 3px 10px;
             border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+        .pill-blue { background: rgba(10,132,255,0.14); color: var(--blue); }
+        .pill-green { background: rgba(48,209,88,0.14); color: var(--green); }
+        .pill-orange { background: rgba(255,159,10,0.14); color: var(--orange); }
+        .pill-red { background: rgba(255,69,58,0.14); color: var(--red); }
+        .pill-purple { background: rgba(191,90,242,0.14); color: var(--purple); }
+        .pill-teal { background: rgba(100,210,255,0.14); color: var(--teal); }
+
+        /* ═══════════════════════════════════════════
+           Buttons
+           ═══════════════════════════════════════════ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s var(--ease);
+        }
+        .btn-primary {
+            background: var(--blue);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #3a9eff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
+        }
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-secondary);
+            border: 0.5px solid var(--glass-border);
+        }
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* ── AI Review buttons ── */
+        .btn-ai {
+            padding: 7px 16px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s var(--ease);
+        }
+        .btn-ai-primary {
+            background: var(--purple);
+            color: #fff;
+        }
+        .btn-ai-primary:hover {
+            box-shadow: 0 4px 16px rgba(191, 90, 242, 0.3);
+            transform: translateY(-1px);
+        }
+        .btn-ai-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-secondary);
+        }
+        .btn-ai-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* ── Range buttons (chart time selectors) ── */
+        .range-btn {
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: none;
             font-size: 12px;
             font-weight: 600;
-            letter-spacing: 0.1px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-tertiary);
+            transition: all 0.2s var(--ease);
         }
-        .pill-blue { background: rgba(10,132,255,0.16); color: var(--blue); }
-        .pill-green { background: rgba(48,209,88,0.16); color: var(--green); }
-        .pill-orange { background: rgba(255,159,10,0.16); color: var(--orange); }
-        .pill-red { background: rgba(255,69,58,0.16); color: var(--red); }
-        .pill-purple { background: rgba(191,90,242,0.16); color: var(--purple); }
-        .pill-teal { background: rgba(100,210,255,0.16); color: var(--teal); }
+        .range-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+        }
+        .range-btn.active {
+            background: var(--blue);
+            color: #fff;
+        }
 
-        /* ── Chart Container ── */
+        /* ═══════════════════════════════════════════
+           Chart Containers
+           ═══════════════════════════════════════════ */
         .chart-wrap {
             position: relative;
             height: 280px;
@@ -235,61 +415,121 @@
             margin: 4px 0;
         }
 
-        /* ── Section Spacer ── */
-        .section { margin-top: 24px; }
+        /* ═══════════════════════════════════════════
+           Section Spacer
+           ═══════════════════════════════════════════ */
+        .section { margin-top: 20px; }
 
-        /* ── Validation Grid ── */
+        /* ═══════════════════════════════════════════
+           Validation Grid
+           ═══════════════════════════════════════════ */
         .val-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 10px;
         }
         .val-item {
-            background: rgba(255,255,255,0.04);
-            border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: var(--radius-sm);
             padding: 14px;
             text-align: center;
+            border: 0.5px solid var(--separator);
+            transition: all 0.2s var(--ease);
         }
-        .val-field { font-size: 11px; color: var(--text-tertiary); font-weight: 500; text-transform: uppercase; }
+        .val-item:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--glass-border-hover);
+        }
+        .val-field { font-size: 10px; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .val-values { font-size: 13px; color: var(--text-secondary); margin: 6px 0; line-height: 1.6; }
-        .val-diff { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+        .val-diff { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
 
-        /* ── Responsive ── */
+        /* ═══════════════════════════════════════════
+           Utility: Info/Warning/Hint boxes
+           ═══════════════════════════════════════════ */
+        .hint-box {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.025);
+            border-radius: var(--radius-sm);
+            border-left: 2px solid var(--blue);
+        }
+        .hint-box-warn {
+            border-left-color: var(--orange);
+        }
+
+        /* ═══════════════════════════════════════════
+           Details/Summary styling
+           ═══════════════════════════════════════════ */
+        details.card summary {
+            list-style: none;
+            cursor: pointer;
+        }
+        details.card summary::-webkit-details-marker {
+            display: none;
+        }
+        details.card[open] summary {
+            margin-bottom: 12px;
+        }
+
+        /* ═══════════════════════════════════════════
+           Responsive
+           ═══════════════════════════════════════════ */
         @media (max-width: 768px) {
-            .grid, .grid-3 { grid-template-columns: 1fr; }
-            .container { padding: 0 16px 40px; }
+            .grid, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .container { padding: 0 16px 48px; }
             .page-header h1 { font-size: 28px; }
             .metric-value { font-size: 34px; }
-            nav { padding: 0 16px; gap: 20px; }
+            nav { padding: 0 16px; gap: 4px; }
+            nav .logo { margin-right: 12px; }
         }
 
-        /* ── Scrollbar ── */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        /* ═══════════════════════════════════════════
+           Scrollbar
+           ═══════════════════════════════════════════ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 
-        /* ── Back link ── */
+        /* ═══════════════════════════════════════════
+           Back Link
+           ═══════════════════════════════════════════ */
         .back-link {
             display: inline-flex;
             align-items: center;
             gap: 4px;
             color: var(--blue);
             text-decoration: none;
-            font-size: 15px;
-            font-weight: 500;
+            font-size: 14px;
+            font-weight: 600;
             margin-bottom: 4px;
+            transition: opacity 0.2s;
         }
-        .back-link:hover { text-decoration: underline; }
+        .back-link:hover { opacity: 0.8; }
+
+        /* ═══════════════════════════════════════════
+           Page entry animation
+           ═══════════════════════════════════════════ */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .container {
+            animation: fadeUp 0.4s var(--ease) both;
+        }
     </style>
 </head>
 <body>
     <nav>
         <a href="/" class="logo"><span>Training</span>Edge</a>
-        <a href="/">面板</a>
-        <a href="/body-data">身体数据</a>
-        <a href="/plan">训练计划</a>
-        <a href="/settings">设置</a>
+        {% set path = request.url.path if request else '/' %}
+        <a href="/" {% if path == '/' %}class="active"{% endif %}>面板</a>
+        <a href="/body-data" {% if '/body-data' in path %}class="active"{% endif %}>身体数据</a>
+        <a href="/plan" {% if '/plan' in path %}class="active"{% endif %}>训练计划</a>
+        <a href="/settings" {% if '/settings' in path %}class="active"{% endif %}>设置</a>
     </nav>
     <div class="container">
         {% block content %}{% endblock %}

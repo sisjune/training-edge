@@ -9,52 +9,31 @@
 
 {# ═══ 模块 1: 今日结论卡 (ReadinessCard) ═══ #}
 {% set r = readiness %}
-<div class="card" style="margin:16px 0; border-radius:16px; padding:24px;
-    {% if r.status == '可执行关键课' %}border-left:3px solid var(--green);
-    {% elif r.status == '可正常训练' %}border-left:3px solid var(--blue);
-    {% elif r.status == '建议恢复训练' %}border-left:3px solid var(--orange);
-    {% elif r.status == '建议休息' %}border-left:3px solid var(--red);
-    {% else %}border-left:3px solid var(--text-tertiary);{% endif %}">
-
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <span style="font-size:20px;">
-                {% if r.status == '可执行关键课' %}🟢
-                {% elif r.status == '可正常训练' %}🔵
-                {% elif r.status == '建议恢复训练' %}🟡
-                {% elif r.status == '建议休息' %}🔴
-                {% else %}⚪{% endif %}
+{% set status_color = 'var(--green)' if r.status == '可执行关键课' else 'var(--blue)' if r.status == '可正常训练' else 'var(--orange)' if r.status == '建议恢复训练' else 'var(--red)' if r.status == '建议休息' else 'var(--text-tertiary)' %}
+<div class="card section" style="padding:0; overflow:hidden;">
+    {# Status header bar #}
+    <div style="padding:20px 24px 16px; background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%); border-bottom:0.5px solid var(--separator);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:10px; height:10px; border-radius:50%; background:{{ status_color }}; box-shadow:0 0 8px {{ status_color }};"></div>
+                <span style="font-size:22px; font-weight:800; letter-spacing:-0.5px;">{{ r.status }}</span>
+            </div>
+            <span class="pill {% if r.confidence == '高' %}pill-green{% elif r.confidence == '中' %}pill-orange{% else %}pill-red{% endif %}">
+                置信度 {{ r.confidence }}
             </span>
-            <span style="font-size:20px; font-weight:700; letter-spacing:-0.3px;">今日状态：{{ r.status }}</span>
         </div>
-        <span class="pill {% if r.confidence == '高' %}pill-green{% elif r.confidence == '中' %}pill-orange{% else %}pill-red{% endif %}">
-            置信度：{{ r.confidence }}
-        </span>
+        <div style="margin-top:10px; font-size:14px; color:var(--text-primary); line-height:1.6;">
+            {{ r.suggestion }}
+        </div>
     </div>
-
-    {% if r.confidence_reasons %}
-    <div style="margin-top:6px; font-size:12px; color:var(--text-tertiary);">
-        {% for reason in r.confidence_reasons %}
-        <div>· {{ reason }}</div>
+    {# Evidence strip #}
+    <div style="padding:14px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        {% if r.reasons %}
+        {% for reason in r.reasons %}
+        <span style="font-size:12px; color:var(--text-secondary); padding:4px 10px; background:rgba(255,255,255,0.04); border-radius:6px;">{{ reason }}</span>
         {% endfor %}
+        {% endif %}
     </div>
-    {% endif %}
-
-    {% if r.reasons %}
-    <div style="margin-top:12px; font-size:14px; color:var(--text-secondary); line-height:1.7;">
-        依据：{{ r.reasons | join(' · ') }}
-    </div>
-    {% endif %}
-
-    <div style="margin-top:8px; font-size:14px; color:var(--text-primary);">
-        💡 {{ r.suggestion }}
-    </div>
-
-    {% if r.today_plan_type %}
-    <div style="margin-top:8px; font-size:13px; color:var(--text-tertiary);">
-        今日计划类型：{{ r.today_plan_type }}
-    </div>
-    {% endif %}
 
     {# 展开详细依据 #}
     {% if r.scoring %}
@@ -184,88 +163,83 @@
 
 {# ═══ 模块 2: 关键指标 MetricCards（4卡片） ═══ #}
 {% set mc = metric_cards %}
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin:16px 0;">
+<div class="grid-4 section">
     {# 睡眠 #}
-    <a href="/body-data#sleep-trend" class="card" style="padding:14px 16px; border-radius:14px; text-decoration:none; cursor:pointer;">
-        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">睡眠</div>
+    <a href="/body-data" class="card" style="text-decoration:none; cursor:pointer;">
+        <div class="card-label" style="margin-bottom:8px;">睡眠</div>
         {% if mc.sleep.value %}
         {% set sh = mc.sleep.value|int %}
         {% set sm = ((mc.sleep.value - sh) * 60)|int %}
-        <div style="font-size:24px; font-weight:700; color:var(--purple); letter-spacing:-0.5px;">{{ sh }}h{{ '%02d'|format(sm) }}m</div>
+        <div class="metric metric-purple"><div class="metric-value">{{ sh }}h{{ '%02d'|format(sm) }}m</div></div>
         {% else %}
-        <div style="font-size:24px; font-weight:700; color:var(--text-tertiary);">—</div>
+        <div class="metric"><div class="metric-value" style="color:var(--text-tertiary);">—</div></div>
         {% endif %}
         {% if mc.sleep.delta_7d is not none %}
-        <div style="font-size:12px; margin-top:4px; color:{% if mc.sleep.delta_7d >= 0 %}var(--green){% else %}var(--red){% endif %};">
+        <div style="font-size:12px; margin-top:6px; color:{% if mc.sleep.delta_7d >= 0 %}var(--green){% else %}var(--red){% endif %};">
             {{ '+' if mc.sleep.delta_7d > 0 }}{{ '%d'|format((mc.sleep.delta_7d * 60)|int) }}min vs 7日均
         </div>
         {% endif %}
-        <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px;">{{ mc.sleep.date or '' }} · {{ mc.sleep.source }}</div>
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">{{ mc.sleep.date or '' }} · {{ mc.sleep.source }}</div>
     </a>
 
     {# HRV #}
-    <a href="/body-data#hrv-trend" class="card" style="padding:14px 16px; border-radius:14px; text-decoration:none; cursor:pointer;">
-        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">HRV</div>
-        <div style="font-size:24px; font-weight:700; color:var(--green); letter-spacing:-0.5px; font-variant-numeric:tabular-nums;">
-            {{ '%.0f'|format(mc.hrv.value) if mc.hrv.value else '—' }} <span style="font-size:13px; font-weight:500; color:var(--text-secondary);">ms</span>
+    <a href="/body-data" class="card" style="text-decoration:none; cursor:pointer;">
+        <div class="card-label" style="margin-bottom:8px;">HRV</div>
+        <div class="metric metric-green">
+            <div class="metric-value">{{ '%.0f'|format(mc.hrv.value) if mc.hrv.value else '—' }}<span class="metric-unit">ms</span></div>
         </div>
         {% if mc.hrv.delta_7d is not none %}
-        <div style="font-size:12px; margin-top:4px; color:{% if mc.hrv.delta_7d >= 0 %}var(--green){% else %}var(--red){% endif %};">
+        <div style="font-size:12px; margin-top:6px; color:{% if mc.hrv.delta_7d >= 0 %}var(--green){% else %}var(--red){% endif %};">
             {{ '+' if mc.hrv.delta_7d > 0 }}{{ '%.0f'|format(mc.hrv.delta_7d) }} vs 7日均
         </div>
         {% endif %}
-        <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px;">{{ mc.hrv.date or '' }} · {{ mc.hrv.source }}</div>
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">{{ mc.hrv.date or '' }} · {{ mc.hrv.source }}</div>
     </a>
 
     {# 静息心率 #}
-    <a href="/body-data#rhr-trend" class="card" style="padding:14px 16px; border-radius:14px; text-decoration:none; cursor:pointer;">
-        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">静息心率</div>
-        <div style="font-size:24px; font-weight:700; color:var(--red); letter-spacing:-0.5px; font-variant-numeric:tabular-nums;">
-            {{ '%.0f'|format(mc.resting_hr.value) if mc.resting_hr.value else '—' }} <span style="font-size:13px; font-weight:500; color:var(--text-secondary);">bpm</span>
+    <a href="/body-data" class="card" style="text-decoration:none; cursor:pointer;">
+        <div class="card-label" style="margin-bottom:8px;">静息心率</div>
+        <div class="metric metric-red">
+            <div class="metric-value">{{ '%.0f'|format(mc.resting_hr.value) if mc.resting_hr.value else '—' }}<span class="metric-unit">bpm</span></div>
         </div>
         {% if mc.resting_hr.delta_7d is not none %}
-        <div style="font-size:12px; margin-top:4px; color:{% if mc.resting_hr.delta_7d <= 0 %}var(--green){% else %}var(--red){% endif %};">
+        <div style="font-size:12px; margin-top:6px; color:{% if mc.resting_hr.delta_7d <= 0 %}var(--green){% else %}var(--red){% endif %};">
             {{ '+' if mc.resting_hr.delta_7d > 0 }}{{ '%.0f'|format(mc.resting_hr.delta_7d) }} vs 7日均
         </div>
         {% endif %}
-        <div style="font-size:11px; color:var(--text-tertiary); margin-top:2px;">{{ mc.resting_hr.date or '' }} · {{ mc.resting_hr.source }}</div>
+        <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px;">{{ mc.resting_hr.date or '' }} · {{ mc.resting_hr.source }}</div>
     </a>
 
-    {# TSB 体能状态 #}
-    <div class="card" style="padding:14px 16px; border-radius:14px;">
-        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">体能状态</div>
-        <div style="display:flex; gap:8px; align-items:baseline;">
-            <span style="font-size:18px; font-weight:700; color:var(--blue); font-variant-numeric:tabular-nums;">{{ '%.0f'|format(mc.fitness.ctl) if mc.fitness.ctl else '—' }}</span>
-            <span style="font-size:11px; color:var(--text-tertiary);">CTL</span>
-            <span style="font-size:18px; font-weight:700; color:var(--orange); font-variant-numeric:tabular-nums;">{{ '%.0f'|format(mc.fitness.atl) if mc.fitness.atl else '—' }}</span>
-            <span style="font-size:11px; color:var(--text-tertiary);">ATL</span>
+    {# 体能状态 #}
+    <div class="card">
+        <div class="card-label" style="margin-bottom:8px;">体能状态</div>
+        <div style="display:flex; gap:6px; align-items:baseline; font-variant-numeric:tabular-nums;">
+            <span style="font-size:26px; font-weight:800; color:var(--blue); letter-spacing:-1px;">{{ '%.0f'|format(mc.fitness.ctl) if mc.fitness.ctl else '—' }}</span>
+            <span style="font-size:11px; color:var(--text-tertiary); font-weight:600;">CTL</span>
+            <span style="font-size:26px; font-weight:800; color:var(--orange); letter-spacing:-1px; margin-left:4px;">{{ '%.0f'|format(mc.fitness.atl) if mc.fitness.atl else '—' }}</span>
+            <span style="font-size:11px; color:var(--text-tertiary); font-weight:600;">ATL</span>
         </div>
-        <div style="margin-top:4px;">
-            {% set tsb_val = mc.fitness.tsb %}
-            <span style="font-size:16px; font-weight:700; color:{% if tsb_val is not none and tsb_val >= 0 %}var(--green){% elif tsb_val is not none %}var(--red){% else %}var(--text-tertiary){% endif %}; font-variant-numeric:tabular-nums;">
-                TSB {{ '%.1f'|format(tsb_val) if tsb_val is not none else '—' }}
-            </span>
+        {% set tsb_val = mc.fitness.tsb %}
+        <div style="margin-top:6px; font-size:18px; font-weight:800; letter-spacing:-0.5px; font-variant-numeric:tabular-nums; color:{% if tsb_val is not none and tsb_val >= 0 %}var(--green){% elif tsb_val is not none %}var(--red){% else %}var(--text-tertiary){% endif %};">
+            TSB {{ '%.1f'|format(tsb_val) if tsb_val is not none else '—' }}
         </div>
     </div>
 </div>
 
-{# ═══ 近7日训练总览（宽卡片） ═══ #}
-<div class="card" style="margin:10px 0 16px 0; border-radius:14px; padding:16px 20px;">
-    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">近7日训练总览</div>
-    <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:baseline;">
-        <div>
-            <span style="font-size:22px; font-weight:700; color:var(--teal); font-variant-numeric:tabular-nums;">{{ '%.1f'|format(mc.week_activity.total_hours) if mc.week_activity.total_hours else '0' }}</span>
-            <span style="font-size:13px; color:var(--text-secondary);">小时</span>
+{# ═══ 近7日训练总览 ═══ #}
+<div class="card" style="margin-top:6px;">
+    <div class="card-label" style="margin-bottom:10px;">近 7 日训练总览</div>
+    <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:baseline;">
+        <div class="metric metric-sm metric-teal">
+            <div class="metric-value">{{ '%.1f'|format(mc.week_activity.total_hours) if mc.week_activity.total_hours else '0' }}<span class="metric-unit">小时</span></div>
         </div>
-        <div>
-            <span style="font-size:22px; font-weight:700; color:var(--orange); font-variant-numeric:tabular-nums;">{{ '%.0f'|format(mc.week_activity.total_tss) if mc.week_activity.total_tss else '0' }}</span>
-            <span style="font-size:13px; color:var(--text-secondary);">TSS</span>
+        <div class="metric metric-sm metric-orange">
+            <div class="metric-value">{{ '%.0f'|format(mc.week_activity.total_tss) if mc.week_activity.total_tss else '0' }}<span class="metric-unit">TSS</span></div>
         </div>
-        <div>
-            <span style="font-size:22px; font-weight:700; color:var(--red); font-variant-numeric:tabular-nums;">{{ mc.week_activity.high_intensity_days|default(0) }}</span>
-            <span style="font-size:13px; color:var(--text-secondary);">高强度天</span>
+        <div class="metric metric-sm metric-red">
+            <div class="metric-value">{{ mc.week_activity.high_intensity_days|default(0) }}<span class="metric-unit">高强度天</span></div>
         </div>
-        <div style="font-size:15px; color:var(--text-secondary); letter-spacing:1px;">
+        <div style="font-size:16px; color:var(--text-secondary); letter-spacing:2px; margin-left:auto;">
             {% for sport, cnt in mc.week_activity.sport_counts.items() %}
                 {% if sport == 'cycling' %}🚴{{ cnt }}{% elif sport == 'running' %}🏃{{ cnt }}{% elif sport == 'training' %}💪{{ cnt }}{% else %}{{ sport }}{{ cnt }}{% endif %}{{ '  ' if not loop.last }}
             {% endfor %}
@@ -275,15 +249,17 @@
 
 {# ═══ 模块 4: 训练负荷趋势 ═══ #}
 <div class="card section">
-    <div style="font-size:13px; color:var(--text-secondary); padding:8px 12px; margin-bottom:8px; background:rgba(255,255,255,0.03); border-radius:8px; line-height:1.6;">
-        {% if decision_summary is defined and decision_summary is mapping %}{{ decision_summary.week_action or decision_summary.today_action or '训练负荷趋势（hover 查看详情）' }}{% elif decision_summary is defined and decision_summary %}{{ decision_summary }}{% else %}训练负荷趋势（hover 查看详情）{% endif %}
+    {% if decision_summary is defined and decision_summary is mapping and (decision_summary.week_action or decision_summary.today_action) %}
+    <div class="hint-box" style="margin-bottom:14px;">
+        {{ decision_summary.week_action or decision_summary.today_action }}
     </div>
+    {% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <div class="card-label" style="margin:0;">训练负荷趋势</div>
         <div style="display:flex; gap:4px;" id="fitnessRangeBtns">
-            <button class="range-btn" data-days="30" style="padding:4px 10px; border-radius:8px; border:none; font-size:12px; font-weight:500; cursor:pointer; background:rgba(255,255,255,0.06); color:var(--text-secondary);">30天</button>
-            <button class="range-btn active" data-days="90" style="padding:4px 10px; border-radius:8px; border:none; font-size:12px; font-weight:500; cursor:pointer; background:var(--blue); color:#fff;">90天</button>
-            <button class="range-btn" data-days="180" style="padding:4px 10px; border-radius:8px; border:none; font-size:12px; font-weight:500; cursor:pointer; background:rgba(255,255,255,0.06); color:var(--text-secondary);">180天</button>
+            <button class="range-btn" data-days="30">30天</button>
+            <button class="range-btn active" data-days="90">90天</button>
+            <button class="range-btn" data-days="180">180天</button>
         </div>
     </div>
     <div class="chart-wrap-lg">
